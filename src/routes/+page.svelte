@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { invoke } from "@tauri-apps/api/core";
   import {
     Archive,
     Database,
@@ -16,44 +17,87 @@
     id: string;
     title: string;
     cwd: string;
-    updatedAt: string;
+    updatedAt: number;
+    updatedAtLabel: string;
     preview: string;
-    model: string;
+    model: string | null;
+    archived: boolean;
+    rolloutPath: string;
+  };
+
+  type CodexThread = {
+    id: string;
+    title: string;
+    cwd: string;
+    preview: string;
+    rolloutPath: string;
+    createdAt: number;
+    updatedAt: number;
+    createdAtMs: number;
+    updatedAtMs: number;
+    model: string | null;
     archived: boolean;
   };
 
-  const sessions: Session[] = [
-    {
-      id: "019e449b-37fd-70a3-9d47-e5edb599b5b5",
-      title: "评估聊天记录拆分可行性",
-      cwd: "/Users/example/Documents/Codex/ccswitch-codex",
-      updatedAt: "2026-05-20 17:00",
-      preview: "分析 CC Switch 中 Codex 历史记录管理功能的独立化可行性。",
-      model: "gpt-5",
-      archived: false,
-    },
-    {
-      id: "019e4428-1dc9-7a21-963e-3254c6b92e6d",
-      title: "梳理世界模型PPT思路",
-      cwd: "/Users/example/Documents/260520PPT",
-      updatedAt: "2026-05-20 16:53",
-      preview: "整理汇报结构、关键图表和素材生成方向。",
-      model: "gpt-5.1",
-      archived: false,
-    },
-    {
-      id: "019e3e36-d751-7d71-a6ed-496f596a92f6",
-      title: "评估 Docker 安装可行性",
-      cwd: "/Users/example/Documents/Codex/docker",
-      updatedAt: "2026-05-20 10:51",
-      preview: "检查远程环境约束，判断 Docker 安装和服务部署路径。",
-      model: "gpt-5",
-      archived: true,
-    },
-  ];
+  type CodexHomeStatus = {
+    path: string;
+    exists: boolean;
+    stateDbExists: boolean;
+    source: "env" | "default";
+  };
 
   let query = $state("");
-  let selectedId = $state(sessions[0]?.id ?? "");
+  let selectedId = $state("");
+  let sessions = $state<Session[]>([]);
+  let codexHome = $state<CodexHomeStatus | null>(null);
+  let isLoading = $state(true);
+  let loadError = $state("");
+
+  function formatDate(timestampMs: number) {
+    return new Intl.DateTimeFormat(undefined, {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(new Date(timestampMs));
+  }
+
+  function toSession(thread: CodexThread): Session {
+    return {
+      id: thread.id,
+      title: thread.title || "Untitled session",
+      cwd: thread.cwd,
+      updatedAt: thread.updatedAtMs,
+      updatedAtLabel: formatDate(thread.updatedAtMs),
+      preview: thread.preview || "No preview available.",
+      model: thread.model,
+      archived: thread.archived,
+      rolloutPath: thread.rolloutPath,
+    };
+  }
+
+  async function loadSessions() {
+    isLoading = true;
+    loadError = "";
+
+    try {
+      codexHome = await invoke<CodexHomeStatus>("get_codex_home_status");
+      const threads = await invoke<CodexThread[]>("list_codex_threads");
+      sessions = threads.map(toSession);
+      selectedId = sessions[0]?.id ?? "";
+    } catch (error) {
+      loadError = error instanceof Error ? error.message : String(error);
+      sessions = [];
+      selectedId = "";
+    } finally {
+      isLoading = false;
+    }
+  }
+
+  $effect(() => {
+    loadSessions();
+  });
 
   const filteredSessions = $derived(
     sessions.filter((session) => {
@@ -63,7 +107,7 @@
   );
 
   const selectedSession = $derived(
-    filteredSessions.find((session) => session.id === selectedId) ?? filteredSessions[0] ?? sessions[0],
+    filteredSessions.find((session) => session.id === selectedId) ?? filteredSessions[0] ?? null,
   );
 </script>
 
@@ -112,6 +156,9 @@
       <div>
         <p class="eyebrow">Local Codex store</p>
         <h1>Sessions</h1>
+        {#if codexHome?.path}
+          <p class="home-path" title={codexHome.path}>{codexHome.path}</p>
+        {/if}
       </div>
       <button class="icon-button" type="button" aria-label="Open Codex data directory">
         <FolderOpen size={18} />
@@ -125,80 +172,100 @@
 
     <div class="list-meta">
       <span>{filteredSessions.length} sessions</span>
-      <span>Read only</span>
+      <span>{isLoading ? "Loading" : "Read only"}</span>
     </div>
 
     <div class="sessions" aria-live="polite">
-      {#each filteredSessions as session}
-        <button
-          class:active={session.id === selectedSession.id}
-          class="session-row"
-          type="button"
-          onclick={() => (selectedId = session.id)}
-        >
-          <span class="row-title">{session.title}</span>
-          <span class="row-preview">{session.preview}</span>
-          <span class="row-footer">
-            <span>{session.updatedAt}</span>
-            <span>{session.archived ? "Archived" : session.model}</span>
-          </span>
-        </button>
-      {/each}
+      {#if isLoading}
+        <div class="state-panel">Reading local Codex history...</div>
+      {:else if loadError}
+        <div class="state-panel error">{loadError}</div>
+      {:else if filteredSessions.length === 0}
+        <div class="state-panel">No sessions match the current search.</div>
+      {:else}
+        {#each filteredSessions as session}
+          <button
+            class:active={session.id === selectedSession?.id}
+            class="session-row"
+            type="button"
+            onclick={() => (selectedId = session.id)}
+          >
+            <span class="row-title">{session.title}</span>
+            <span class="row-preview">{session.preview}</span>
+            <span class="row-footer">
+              <span>{session.updatedAtLabel}</span>
+              <span>{session.archived ? "Archived" : (session.model ?? "model unknown")}</span>
+            </span>
+          </button>
+        {/each}
+      {/if}
     </div>
   </section>
 
   <section class="detail-panel" aria-label="Session details">
-    <header class="detail-header">
-      <div>
-        <p class="eyebrow">Selected session</p>
-        <h2>{selectedSession.title}</h2>
-      </div>
-      <div class="detail-actions" aria-label="Session actions">
-        <button class="icon-button" type="button" aria-label="Resume session">
-          <Play size={17} />
-        </button>
-        <button class="icon-button" type="button" aria-label="Search transcript">
-          <FileSearch size={17} />
-        </button>
-        <button class="icon-button danger" type="button" aria-label="Move to trash">
-          <Trash2 size={17} />
-        </button>
-      </div>
-    </header>
+    {#if selectedSession}
+      <header class="detail-header">
+        <div>
+          <p class="eyebrow">Selected session</p>
+          <h2>{selectedSession.title}</h2>
+        </div>
+        <div class="detail-actions" aria-label="Session actions">
+          <button class="icon-button" type="button" aria-label="Resume session">
+            <Play size={17} />
+          </button>
+          <button class="icon-button" type="button" aria-label="Search transcript">
+            <FileSearch size={17} />
+          </button>
+          <button class="icon-button danger" type="button" aria-label="Move to trash">
+            <Trash2 size={17} />
+          </button>
+        </div>
+      </header>
 
-    <dl class="session-facts">
-      <div>
-        <dt>Session ID</dt>
-        <dd>{selectedSession.id}</dd>
-      </div>
-      <div>
-        <dt>Project Path</dt>
-        <dd>{selectedSession.cwd}</dd>
-      </div>
-      <div>
-        <dt>Updated</dt>
-        <dd>{selectedSession.updatedAt}</dd>
-      </div>
-      <div>
-        <dt>Status</dt>
-        <dd>{selectedSession.archived ? "Archived" : "Active"}</dd>
-      </div>
-    </dl>
+      <dl class="session-facts">
+        <div>
+          <dt>Session ID</dt>
+          <dd>{selectedSession.id}</dd>
+        </div>
+        <div>
+          <dt>Project Path</dt>
+          <dd>{selectedSession.cwd}</dd>
+        </div>
+        <div>
+          <dt>Updated</dt>
+          <dd>{selectedSession.updatedAtLabel}</dd>
+        </div>
+        <div>
+          <dt>Status</dt>
+          <dd>{selectedSession.archived ? "Archived" : "Active"}</dd>
+        </div>
+        <div>
+          <dt>Transcript</dt>
+          <dd>{selectedSession.rolloutPath}</dd>
+        </div>
+        <div>
+          <dt>Model</dt>
+          <dd>{selectedSession.model ?? "Unknown"}</dd>
+        </div>
+      </dl>
 
-    <section class="preview">
-      <h3>Preview</h3>
-      <p>{selectedSession.preview}</p>
-    </section>
+      <section class="preview">
+        <h3>Preview</h3>
+        <p>{selectedSession.preview}</p>
+      </section>
 
-    <section class="roadmap">
-      <h3>Initial scope</h3>
-      <div class="scope-grid">
-        <span>Read Codex SQLite thread index</span>
-        <span>Parse JSONL transcripts on demand</span>
-        <span>Resume by session id</span>
-        <span>Keep app metadata isolated</span>
-      </div>
-    </section>
+      <section class="roadmap">
+        <h3>Initial scope</h3>
+        <div class="scope-grid">
+          <span>Read Codex SQLite thread index</span>
+          <span>Parse JSONL transcripts on demand</span>
+          <span>Resume by session id</span>
+          <span>Keep app metadata isolated</span>
+        </div>
+      </section>
+    {:else}
+      <div class="empty-detail">Select a session to inspect its local metadata.</div>
+    {/if}
   </section>
 </main>
 
@@ -347,6 +414,17 @@
     line-height: 34px;
   }
 
+  .home-path {
+    overflow: hidden;
+    max-width: 320px;
+    margin: 4px 0 0;
+    color: #68747f;
+    font-size: 12px;
+    line-height: 18px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   h2 {
     margin-bottom: 0;
     font-size: 24px;
@@ -413,6 +491,23 @@
   .sessions {
     display: grid;
     gap: 8px;
+  }
+
+  .state-panel,
+  .empty-detail {
+    padding: 16px;
+    border: 1px solid #dbe1e5;
+    border-radius: 8px;
+    color: #53616d;
+    background: #f8fafb;
+    font-size: 13px;
+    line-height: 20px;
+  }
+
+  .state-panel.error {
+    border-color: #e3b7b2;
+    color: #8c312b;
+    background: #fff7f6;
   }
 
   .session-row {
