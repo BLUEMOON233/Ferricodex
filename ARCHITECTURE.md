@@ -21,12 +21,32 @@ src-tauri/src/
     home.rs               CODEX_HOME and platform path detection
     threads.rs            SQLite thread index reader
     transcript.rs         JSONL transcript parser
+    workspaces.rs          cwd grouping and read-only workspace metadata
   app_state/
     store.rs              app-owned SQLite/settings storage
     index.rs              disposable search index
   platform/
     terminal.rs           cross-platform resume launchers
 ```
+
+## Workspace Model
+
+Codex conversations are attached to a `cwd`, and multiple conversations can share
+the same working directory. The app should model that relationship as:
+
+```text
+Workspace 1 -> N Threads
+```
+
+Workspace management should remain separate from history management:
+
+- The session list is the primary view for browsing conversation history.
+- The workspace view groups sessions by normalized `cwd`.
+- Directory size and filesystem metadata should be loaded lazily, not during the
+  initial session index read.
+- Cleanup features should be advisory and user-confirmed. The app must not
+  automatically delete files from `~/.codex`, `~/Documents/Codex`, or project
+  directories.
 
 ## Write Boundaries
 

@@ -75,12 +75,30 @@ npm run tauri build
 
 ## Current Status
 
-This repository currently contains the initial Tauri/Svelte project shell and UI scaffold. The backend data reader is intentionally not wired yet.
+The project can currently read local Codex thread metadata from `state_5.sqlite`
+in read-only mode, render the session list in the desktop UI, and group sessions
+by workspace path.
 
-Planned first implementation slice:
+Completed:
 
-1. Detect Codex home directory.
-2. Read the `threads` table from `state_5.sqlite`.
-3. Show active and archived sessions.
-4. Parse transcript JSONL only when a session is selected.
-5. Launch `codex resume <session-id>` through platform-specific terminal helpers.
+- [x] Scaffold Tauri 2 + Svelte 5 desktop app.
+- [x] Install Rust toolchain with a pinned `rust-toolchain.toml`.
+- [x] Detect Codex home from `CODEX_HOME` or the default user directory.
+- [x] Read the `threads` table from `state_5.sqlite` without modifying Codex files.
+- [x] Show active and archived sessions with search, preview, and selected-session details.
+- [x] Add a `Sessions` / `Workspaces` split view.
+- [x] Group sessions by normalized `cwd` so one workspace can show many related conversations.
+- [x] Classify workspace sources, including user projects, `~/Documents/Codex` task folders, and `$CODEX_HOME/worktrees`.
+- [x] Show workspace metadata lazily: existence, size, last modified time, and related session count.
+- [x] Keep generated build outputs and dependency folders out of Git.
+- [x] Push the initial repository to GitHub.
+
+Next:
+
+- [ ] Split the current single-page Svelte implementation into small UI and data helper modules.
+- [ ] Split `src-tauri/src/codex.rs` into `home`, `threads`, `transcript`, and `workspaces` modules.
+- [ ] Wire the folder buttons to reveal Codex home and selected workspaces with `@tauri-apps/plugin-opener`.
+- [ ] Parse transcript JSONL only when a session is selected.
+- [ ] Launch `codex resume <session-id>` through platform-specific terminal helpers.
+- [ ] Add UI-level tests or an automation-friendly test route for reliable desktop interaction checks.
+- [ ] Add conservative cleanup suggestions for empty or orphaned workspaces, with no automatic deletion.

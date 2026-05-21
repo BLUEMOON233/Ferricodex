@@ -1,6 +1,6 @@
 mod codex;
 
-use codex::{CodexHomeStatus, CodexThread};
+use codex::{CodexHomeStatus, CodexThread, WorkspaceMetadata};
 
 #[tauri::command]
 fn get_app_summary() -> String {
@@ -17,6 +17,11 @@ fn list_codex_threads() -> Result<Vec<CodexThread>, String> {
     codex::list_threads().map_err(|error| error.to_string())
 }
 
+#[tauri::command]
+fn get_workspace_metadata(path: String) -> WorkspaceMetadata {
+    codex::workspace_metadata(path)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -24,7 +29,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_app_summary,
             get_codex_home_status,
-            list_codex_threads
+            list_codex_threads,
+            get_workspace_metadata
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

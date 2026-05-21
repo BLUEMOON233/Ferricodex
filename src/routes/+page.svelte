@@ -25,6 +25,35 @@
     rolloutPath: string;
   };
 
+  type ViewMode = "sessions" | "workspaces";
+  type WorkspaceSource = "codexTaskFolder" | "codexWorktree" | "userProject";
+
+  type Workspace = {
+    id: string;
+    name: string;
+    path: string;
+    source: WorkspaceSource;
+    sourceLabel: string;
+    sessions: Session[];
+    sessionCount: number;
+    activeCount: number;
+    archivedCount: number;
+    updatedAt: number;
+    updatedAtLabel: string;
+  };
+
+  type WorkspaceMetadata = {
+    path: string;
+    exists: boolean;
+    isDirectory: boolean;
+    isFile: boolean;
+    sizeBytes: number | null;
+    fileCount: number | null;
+    directoryCount: number | null;
+    modifiedAtMs: number | null;
+    scanTruncated: boolean;
+  };
+
   type CodexThread = {
     id: string;
     title: string;
@@ -47,9 +76,14 @@
   };
 
   let query = $state("");
+  let activeView = $state<ViewMode>("sessions");
   let selectedId = $state("");
+  let selectedWorkspaceId = $state("");
   let sessions = $state<Session[]>([]);
   let codexHome = $state<CodexHomeStatus | null>(null);
+  let workspaceMetadataByPath = $state<Record<string, WorkspaceMetadata>>({});
+  let workspaceMetadataErrorsByPath = $state<Record<string, string>>({});
+  let loadingWorkspacePath = $state("");
   let isLoading = $state(true);
   let loadError = $state("");
 
@@ -77,6 +111,99 @@
     };
   }
 
+  function normalizeWorkspacePath(path: string) {
+    const trimmed = path.trim();
+
+    if (!trimmed) {
+      return "Unknown workspace";
+    }
+
+    const normalized = trimmed.replace(/\\/g, "/");
+
+    if (normalized === "/" || /^[A-Za-z]:\/?$/.test(normalized)) {
+      return normalized;
+    }
+
+    return normalized.replace(/\/+$/, "");
+  }
+
+  function workspaceName(path: string) {
+    const normalized = normalizeWorkspacePath(path);
+    const parts = normalized.split("/").filter(Boolean);
+
+    return parts.at(-1) ?? normalized;
+  }
+
+  function isSameOrChildPath(path: string, root: string) {
+    const normalizedPath = normalizeWorkspacePath(path).toLowerCase();
+    const normalizedRoot = normalizeWorkspacePath(root).toLowerCase();
+
+    return normalizedPath === normalizedRoot || normalizedPath.startsWith(`${normalizedRoot}/`);
+  }
+
+  function classifyWorkspace(path: string): WorkspaceSource {
+    if (codexHome?.path && isSameOrChildPath(path, `${codexHome.path}/worktrees`)) {
+      return "codexWorktree";
+    }
+
+    if (normalizeWorkspacePath(path).includes("/Documents/Codex/")) {
+      return "codexTaskFolder";
+    }
+
+    return "userProject";
+  }
+
+  function workspaceSourceLabel(source: WorkspaceSource) {
+    if (source === "codexTaskFolder") {
+      return "Codex Task Folder";
+    }
+
+    if (source === "codexWorktree") {
+      return "Codex Worktree";
+    }
+
+    return "User Project";
+  }
+
+  function workspaceSourceDescription(source: WorkspaceSource) {
+    if (source === "codexTaskFolder") {
+      return "Created by the desktop app as a task working directory.";
+    }
+
+    if (source === "codexWorktree") {
+      return "Managed under the Codex home worktrees directory.";
+    }
+
+    return "A project or folder selected as a Codex working directory.";
+  }
+
+  function formatSize(bytes: number | null | undefined) {
+    if (bytes === null || bytes === undefined) {
+      return "Unknown";
+    }
+
+    const units = ["B", "KB", "MB", "GB", "TB"];
+    let value = bytes;
+    let unitIndex = 0;
+
+    while (value >= 1024 && unitIndex < units.length - 1) {
+      value /= 1024;
+      unitIndex += 1;
+    }
+
+    const digits = value >= 10 || unitIndex === 0 ? 0 : 1;
+
+    return `${value.toFixed(digits)} ${units[unitIndex]}`;
+  }
+
+  function formatCount(value: number | null | undefined) {
+    if (value === null || value === undefined) {
+      return "Unknown";
+    }
+
+    return new Intl.NumberFormat().format(value);
+  }
+
   async function loadSessions() {
     isLoading = true;
     loadError = "";
@@ -86,10 +213,18 @@
       const threads = await invoke<CodexThread[]>("list_codex_threads");
       sessions = threads.map(toSession);
       selectedId = sessions[0]?.id ?? "";
+      selectedWorkspaceId = "";
+      workspaceMetadataByPath = {};
+      workspaceMetadataErrorsByPath = {};
+      loadingWorkspacePath = "";
     } catch (error) {
       loadError = error instanceof Error ? error.message : String(error);
       sessions = [];
       selectedId = "";
+      selectedWorkspaceId = "";
+      workspaceMetadataByPath = {};
+      workspaceMetadataErrorsByPath = {};
+      loadingWorkspacePath = "";
     } finally {
       isLoading = false;
     }
@@ -106,9 +241,117 @@
     }),
   );
 
+  const workspaces = $derived.by((): Workspace[] => {
+    const workspaceMap = new Map<string, Workspace>();
+
+    for (const session of sessions) {
+      const id = normalizeWorkspacePath(session.cwd);
+      const existing = workspaceMap.get(id);
+
+      if (existing) {
+        existing.sessions.push(session);
+        existing.sessionCount += 1;
+        existing.activeCount += session.archived ? 0 : 1;
+        existing.archivedCount += session.archived ? 1 : 0;
+
+        if (session.updatedAt > existing.updatedAt) {
+          existing.updatedAt = session.updatedAt;
+          existing.updatedAtLabel = session.updatedAtLabel;
+        }
+
+        continue;
+      }
+
+      const source = classifyWorkspace(session.cwd);
+
+      workspaceMap.set(id, {
+        id,
+        name: workspaceName(session.cwd),
+        path: session.cwd,
+        source,
+        sourceLabel: workspaceSourceLabel(source),
+        sessions: [session],
+        sessionCount: 1,
+        activeCount: session.archived ? 0 : 1,
+        archivedCount: session.archived ? 1 : 0,
+        updatedAt: session.updatedAt,
+        updatedAtLabel: session.updatedAtLabel,
+      });
+    }
+
+    return Array.from(workspaceMap.values()).sort(
+      (left, right) => right.updatedAt - left.updatedAt || left.path.localeCompare(right.path),
+    );
+  });
+
+  const filteredWorkspaces = $derived(
+    workspaces.filter((workspace) => {
+      const sessionText = workspace.sessions
+        .map((session) => `${session.title} ${session.preview} ${session.id}`)
+        .join(" ");
+      const value =
+        `${workspace.name} ${workspace.path} ${workspace.sourceLabel} ${sessionText}`.toLowerCase();
+
+      return value.includes(query.trim().toLowerCase());
+    }),
+  );
+
+  const filteredWorkspaceSessionCount = $derived(
+    filteredWorkspaces.reduce((total, workspace) => total + workspace.sessionCount, 0),
+  );
+
   const selectedSession = $derived(
     filteredSessions.find((session) => session.id === selectedId) ?? filteredSessions[0] ?? null,
   );
+
+  const selectedWorkspace = $derived(
+    filteredWorkspaces.find((workspace) => workspace.id === selectedWorkspaceId) ??
+      filteredWorkspaces[0] ??
+      null,
+  );
+
+  const selectedWorkspaceMetadata = $derived(
+    selectedWorkspace ? (workspaceMetadataByPath[selectedWorkspace.id] ?? null) : null,
+  );
+
+  const selectedWorkspaceMetadataError = $derived(
+    selectedWorkspace ? (workspaceMetadataErrorsByPath[selectedWorkspace.id] ?? "") : "",
+  );
+
+  $effect(() => {
+    if (activeView !== "workspaces" || !selectedWorkspace) {
+      return;
+    }
+
+    const workspaceId = selectedWorkspace.id;
+
+    if (workspaceMetadataByPath[workspaceId] || loadingWorkspacePath === workspaceId) {
+      return;
+    }
+
+    loadingWorkspacePath = workspaceId;
+    const { [workspaceId]: _clearedError, ...remainingErrors } = workspaceMetadataErrorsByPath;
+    workspaceMetadataErrorsByPath = remainingErrors;
+
+    invoke<WorkspaceMetadata>("get_workspace_metadata", { path: selectedWorkspace.path })
+      .then((metadata) => {
+        workspaceMetadataByPath = {
+          ...workspaceMetadataByPath,
+          [workspaceId]: metadata,
+        };
+      })
+      .catch((error) => {
+        workspaceMetadataErrorsByPath = {
+          ...workspaceMetadataErrorsByPath,
+          [workspaceId]: error instanceof Error ? error.message : String(error),
+        };
+      })
+      .finally(() => {
+        if (loadingWorkspacePath === workspaceId) {
+          loadingWorkspacePath = "";
+        }
+      });
+  });
 </script>
 
 <svelte:head>
@@ -128,9 +371,23 @@
     </div>
 
     <nav class="nav-list" aria-label="Primary">
-      <button class="nav-item active" type="button">
+      <button
+        class:active={activeView === "sessions"}
+        class="nav-item"
+        type="button"
+        onclick={() => (activeView = "sessions")}
+      >
         <Database size={17} />
         Sessions
+      </button>
+      <button
+        class:active={activeView === "workspaces"}
+        class="nav-item"
+        type="button"
+        onclick={() => (activeView = "workspaces")}
+      >
+        <FolderOpen size={17} />
+        Workspaces
       </button>
       <button class="nav-item" type="button">
         <Archive size={17} />
@@ -155,7 +412,7 @@
     <header class="panel-header">
       <div>
         <p class="eyebrow">Local Codex store</p>
-        <h1>Sessions</h1>
+        <h1>{activeView === "sessions" ? "Sessions" : "Workspaces"}</h1>
         {#if codexHome?.path}
           <p class="home-path" title={codexHome.path}>{codexHome.path}</p>
         {/if}
@@ -167,11 +424,21 @@
 
     <label class="search-box">
       <Search size={18} />
-      <input bind:value={query} type="search" placeholder="Search title, path, preview, or id" />
+      <input
+        bind:value={query}
+        type="search"
+        placeholder={activeView === "sessions"
+          ? "Search title, path, preview, or id"
+          : "Search workspace, path, source, or session"}
+      />
     </label>
 
     <div class="list-meta">
-      <span>{filteredSessions.length} sessions</span>
+      {#if activeView === "sessions"}
+        <span>{filteredSessions.length} sessions</span>
+      {:else}
+        <span>{filteredWorkspaces.length} workspaces / {filteredWorkspaceSessionCount} sessions</span>
+      {/if}
       <span>{isLoading ? "Loading" : "Read only"}</span>
     </div>
 
@@ -180,9 +447,11 @@
         <div class="state-panel">Reading local Codex history...</div>
       {:else if loadError}
         <div class="state-panel error">{loadError}</div>
-      {:else if filteredSessions.length === 0}
+      {:else if activeView === "sessions" && filteredSessions.length === 0}
         <div class="state-panel">No sessions match the current search.</div>
-      {:else}
+      {:else if activeView === "workspaces" && filteredWorkspaces.length === 0}
+        <div class="state-panel">No workspaces match the current search.</div>
+      {:else if activeView === "sessions"}
         {#each filteredSessions as session}
           <button
             class:active={session.id === selectedSession?.id}
@@ -198,12 +467,159 @@
             </span>
           </button>
         {/each}
+      {:else}
+        {#each filteredWorkspaces as workspace}
+          <button
+            class:active={workspace.id === selectedWorkspace?.id}
+            class="workspace-row"
+            type="button"
+            onclick={() => (selectedWorkspaceId = workspace.id)}
+          >
+            <span class="row-title">{workspace.name}</span>
+            <span class="row-path" title={workspace.path}>{workspace.path}</span>
+            <span class="row-footer">
+              <span>{workspace.sessionCount} sessions</span>
+              <span>{workspace.sourceLabel}</span>
+            </span>
+            <span class="row-footer">
+              <span>Last used {workspace.updatedAtLabel}</span>
+              <span>{workspace.archivedCount} archived</span>
+            </span>
+          </button>
+        {/each}
       {/if}
     </div>
   </section>
 
   <section class="detail-panel" aria-label="Session details">
-    {#if selectedSession}
+    {#if activeView === "workspaces" && selectedWorkspace}
+      <header class="detail-header">
+        <div>
+          <p class="eyebrow">Selected workspace</p>
+          <h2>{selectedWorkspace.name}</h2>
+        </div>
+        <div class="detail-actions" aria-label="Workspace actions">
+          <button class="icon-button" type="button" aria-label="Open workspace folder">
+            <FolderOpen size={17} />
+          </button>
+        </div>
+      </header>
+
+      <dl class="session-facts">
+        <div>
+          <dt>Workspace Path</dt>
+          <dd title={selectedWorkspace.path}>{selectedWorkspace.path}</dd>
+        </div>
+        <div>
+          <dt>Source</dt>
+          <dd>{selectedWorkspace.sourceLabel}</dd>
+        </div>
+        <div>
+          <dt>Sessions</dt>
+          <dd>{selectedWorkspace.sessionCount}</dd>
+        </div>
+        <div>
+          <dt>Active</dt>
+          <dd>{selectedWorkspace.activeCount}</dd>
+        </div>
+        <div>
+          <dt>Archived</dt>
+          <dd>{selectedWorkspace.archivedCount}</dd>
+        </div>
+        <div>
+          <dt>Last Used</dt>
+          <dd>{selectedWorkspace.updatedAtLabel}</dd>
+        </div>
+      </dl>
+
+      <section class="preview">
+        <h3>Workspace Context</h3>
+        <p>{workspaceSourceDescription(selectedWorkspace.source)}</p>
+      </section>
+
+      <section class="workspace-metadata">
+        <div class="section-heading">
+          <h3>Filesystem Metadata</h3>
+          <span>
+            {#if loadingWorkspacePath === selectedWorkspace.id}
+              Loading
+            {:else}
+              Lazy loaded
+            {/if}
+          </span>
+        </div>
+
+        {#if selectedWorkspaceMetadataError}
+          <div class="state-panel error">{selectedWorkspaceMetadataError}</div>
+        {:else if selectedWorkspaceMetadata}
+          <dl class="metadata-grid">
+            <div>
+              <dt>Exists</dt>
+              <dd>{selectedWorkspaceMetadata.exists ? "Yes" : "No"}</dd>
+            </div>
+            <div>
+              <dt>Type</dt>
+              <dd>
+                {#if selectedWorkspaceMetadata.isDirectory}
+                  Directory
+                {:else if selectedWorkspaceMetadata.isFile}
+                  File
+                {:else}
+                  Missing
+                {/if}
+              </dd>
+            </div>
+            <div>
+              <dt>Size</dt>
+              <dd>{formatSize(selectedWorkspaceMetadata.sizeBytes)}</dd>
+            </div>
+            <div>
+              <dt>Files</dt>
+              <dd>{formatCount(selectedWorkspaceMetadata.fileCount)}</dd>
+            </div>
+            <div>
+              <dt>Folders</dt>
+              <dd>{formatCount(selectedWorkspaceMetadata.directoryCount)}</dd>
+            </div>
+            <div>
+              <dt>Modified</dt>
+              <dd>
+                {selectedWorkspaceMetadata.modifiedAtMs
+                  ? formatDate(selectedWorkspaceMetadata.modifiedAtMs)
+                  : "Unknown"}
+              </dd>
+            </div>
+          </dl>
+
+          {#if selectedWorkspaceMetadata.scanTruncated}
+            <p class="metadata-note">
+              Directory scan reached the safety limit, so size and counts are partial.
+            </p>
+          {/if}
+        {:else}
+          <div class="state-panel">Reading filesystem metadata for the selected workspace...</div>
+        {/if}
+      </section>
+
+      <section class="related-sessions">
+        <h3>Related Sessions</h3>
+        <div class="related-list">
+          {#each selectedWorkspace.sessions as session}
+            <button
+              class="related-session"
+              type="button"
+              onclick={() => {
+                activeView = "sessions";
+                selectedId = session.id;
+              }}
+            >
+              <span>{session.title}</span>
+              <small>{session.updatedAtLabel}</small>
+            </button>
+          {/each}
+        </div>
+      </section>
+    {:else if activeView === "sessions" && selectedSession}
       <header class="detail-header">
         <div>
           <p class="eyebrow">Selected session</p>
@@ -258,13 +674,17 @@
         <h3>Initial scope</h3>
         <div class="scope-grid">
           <span>Read Codex SQLite thread index</span>
-          <span>Parse JSONL transcripts on demand</span>
-          <span>Resume by session id</span>
+          <span>Group sessions by workspace path</span>
+          <span>Inspect workspace metadata lazily</span>
+          <span>Parse transcripts on demand</span>
           <span>Keep app metadata isolated</span>
         </div>
       </section>
     {:else}
-      <div class="empty-detail">Select a session to inspect its local metadata.</div>
+      <div class="empty-detail">
+        Select a {activeView === "sessions" ? "session" : "workspace"} to inspect its local
+        metadata.
+      </div>
     {/if}
   </section>
 </main>
@@ -524,8 +944,24 @@
     cursor: pointer;
   }
 
+  .workspace-row {
+    display: grid;
+    gap: 5px;
+    width: 100%;
+    min-height: 116px;
+    padding: 13px;
+    border: 1px solid #e0e5e9;
+    border-radius: 8px;
+    color: inherit;
+    background: #ffffff;
+    text-align: left;
+    cursor: pointer;
+  }
+
   .session-row:hover,
-  .session-row.active {
+  .session-row.active,
+  .workspace-row:hover,
+  .workspace-row.active {
     border-color: #8bb5bc;
     background: #f4fafb;
   }
@@ -535,6 +971,15 @@
     font-size: 14px;
     font-weight: 700;
     line-height: 20px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .row-path {
+    overflow: hidden;
+    color: #52606c;
+    font-size: 12px;
+    line-height: 18px;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
@@ -580,6 +1025,8 @@
 
   .session-facts div,
   .preview,
+  .workspace-metadata,
+  .related-sessions,
   .roadmap {
     border: 1px solid #dbe1e5;
     border-radius: 8px;
@@ -608,6 +1055,8 @@
   }
 
   .preview,
+  .workspace-metadata,
+  .related-sessions,
   .roadmap {
     padding: 17px;
   }
@@ -616,6 +1065,88 @@
     margin-bottom: 0;
     color: #44515d;
     line-height: 24px;
+  }
+
+  .section-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+  }
+
+  .section-heading h3 {
+    margin-bottom: 0;
+  }
+
+  .section-heading span {
+    color: #71808b;
+    font-size: 12px;
+    line-height: 17px;
+  }
+
+  .metadata-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin: 0;
+  }
+
+  .metadata-grid div {
+    min-width: 0;
+    padding: 11px;
+    border: 1px solid #e0e6ea;
+    border-radius: 7px;
+    background: #f9fbfc;
+  }
+
+  .metadata-note {
+    margin: 12px 0 0;
+    color: #68747f;
+    font-size: 12px;
+    line-height: 18px;
+  }
+
+  .related-list {
+    display: grid;
+    gap: 8px;
+  }
+
+  .related-session {
+    display: grid;
+    gap: 3px;
+    width: 100%;
+    padding: 11px 12px;
+    border: 1px solid #e0e6ea;
+    border-radius: 7px;
+    color: inherit;
+    background: #f9fbfc;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .related-session:hover {
+    border-color: #9eb1bd;
+    background: #f4fafb;
+  }
+
+  .related-session span,
+  .related-session small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .related-session span {
+    font-size: 13px;
+    font-weight: 650;
+    line-height: 19px;
+  }
+
+  .related-session small {
+    color: #71808b;
+    font-size: 12px;
+    line-height: 17px;
   }
 
   .scope-grid {
