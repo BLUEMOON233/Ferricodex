@@ -30,6 +30,11 @@ fn get_workspace_metadata(path: String) -> WorkspaceMetadata {
 }
 
 #[tauri::command]
+fn set_thread_archive_state(thread_id: String, archived: bool) -> Result<(), String> {
+    codex::set_thread_archive_state(thread_id, archived).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 fn open_local_path(app: tauri::AppHandle, path: String) -> Result<(), String> {
     let directory = normalize_openable_directory(&path)?;
     let display_path = directory.display().to_string();
@@ -103,6 +108,7 @@ pub fn run() {
             list_codex_threads,
             get_codex_transcript,
             get_workspace_metadata,
+            set_thread_archive_state,
             open_local_path
         ])
         .run(tauri::generate_context!())

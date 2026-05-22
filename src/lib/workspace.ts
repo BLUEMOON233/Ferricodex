@@ -1,6 +1,6 @@
 import type { Session } from "./codex";
 
-export type ViewMode = "sessions" | "workspaces";
+export type ViewMode = "sessions" | "workspaces" | "archive";
 export type WorkspaceSource = "codexTaskFolder" | "codexWorktree" | "userProject";
 
 export type Workspace = {

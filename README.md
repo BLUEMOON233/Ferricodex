@@ -22,6 +22,7 @@ The app should avoid environment pollution:
 - Keep app-owned settings, indexes, and logs in one app data directory.
 - Treat search indexes as disposable cache that can be rebuilt from Codex session files.
 - Prefer read-only behavior for Codex-owned files until write operations are explicitly designed.
+- Keep Codex-owned write operations narrow, user-confirmed, and compatible with Codex's own storage layout.
 
 Expected Codex inputs:
 
@@ -29,6 +30,7 @@ Expected Codex inputs:
 ~/.codex/state_5.sqlite
 ~/.codex/session_index.jsonl
 ~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl
+~/.codex/archived_sessions/rollout-*.jsonl
 ```
 
 Expected app-owned outputs:
@@ -75,10 +77,11 @@ npm run tauri build
 
 ## Current Status
 
-The project can currently read local Codex thread metadata from `state_5.sqlite`
-in read-only mode, render searchable session and workspace views, reveal local
-folders, and parse/filter a bounded transcript preview only when a session is
-selected.
+The project can currently read local Codex thread metadata from `state_5.sqlite`,
+render searchable active/archive session and workspace views, reveal local
+folders, parse/filter a bounded transcript preview only when a session is
+selected, and move sessions between Codex-compatible active/archive locations
+after user confirmation.
 
 Completed:
 
@@ -96,12 +99,13 @@ Completed:
 - [x] Wire folder buttons through a bounded backend opener command for user-home directories.
 - [x] Parse transcript JSONL on demand for the selected session with bounded read-only loading.
 - [x] Filter the loaded transcript preview by text and message role without reading extra files.
+- [x] Archive and unarchive selected sessions by moving rollout JSONL files between `sessions` and `archived_sessions` and updating Codex `state_5.sqlite`.
 - [x] Keep generated build outputs and dependency folders out of Git.
 - [x] Push the initial repository to GitHub.
 
 Next:
 
+- [ ] Add system Trash support for selected sessions and workspace/task folders with confirmation.
 - [ ] Add UI-level tests or an automation-friendly test route for reliable desktop interaction checks.
 - [ ] Expand selected-session filtering into an app-owned global transcript search index.
-- [ ] Add conservative cleanup suggestions for empty or orphaned workspaces, with no automatic deletion.
 - [ ] Investigate official Codex Desktop deep links before adding any resume launcher.

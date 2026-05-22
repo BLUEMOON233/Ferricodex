@@ -92,3 +92,7 @@ export function getCodexTranscript(path: string) {
 export function getWorkspaceMetadata(path: string) {
   return invoke<WorkspaceMetadata>("get_workspace_metadata", { path });
 }
+
+export function setThreadArchiveState(threadId: string, archived: boolean) {
+  return invoke<void>("set_thread_archive_state", { threadId, archived });
+}

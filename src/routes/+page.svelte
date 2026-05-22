@@ -16,6 +16,7 @@
     getCodexTranscript,
     getWorkspaceMetadata,
     listCodexThreads,
+    setThreadArchiveState,
     toSession,
     type CodexHomeStatus,
     type CodexTranscript,
@@ -46,6 +47,10 @@
   let isLoading = $state(true);
   let loadError = $state("");
   let openerError = $state("");
+  let archiveError = $state("");
+  let archiveActionSessionId = $state("");
+  let pendingArchiveSessionId = $state("");
+  let pendingArchiveNextArchived = $state<boolean | null>(null);
   let transcriptQuery = $state("");
   let transcriptRoleFilter = $state("all");
   let lastTranscriptPath = "";
@@ -98,6 +103,49 @@
     }
 
     await openPathWithFeedback(selectedWorkspace.path, "workspace folder");
+  }
+
+  function clearPendingArchiveAction() {
+    pendingArchiveSessionId = "";
+    pendingArchiveNextArchived = null;
+  }
+
+  function requestSelectedSessionArchiveState() {
+    if (!selectedSession) {
+      archiveError = "No session is selected.";
+      return;
+    }
+
+    pendingArchiveSessionId = selectedSession.id;
+    pendingArchiveNextArchived = !selectedSession.archived;
+    archiveError = "";
+  }
+
+  async function confirmSelectedSessionArchiveState() {
+    if (!pendingArchiveSessionId || pendingArchiveNextArchived === null) {
+      archiveError = "No archive action is pending.";
+      return;
+    }
+
+    const sessionId = pendingArchiveSessionId;
+    const nextArchived = pendingArchiveNextArchived;
+    const action = nextArchived ? "archive" : "unarchive";
+
+    archiveActionSessionId = sessionId;
+    archiveError = "";
+
+    try {
+      await setThreadArchiveState(sessionId, nextArchived);
+
+      await loadSessions();
+      activeView = nextArchived ? "archive" : "sessions";
+      selectedId = sessionId;
+    } catch (error) {
+      archiveError = `Could not ${action} session: ${errorMessage(error)}`;
+    } finally {
+      archiveActionSessionId = "";
+      clearPendingArchiveAction();
+    }
   }
 
   async function loadTranscriptForSession(session: Session, force = false) {
@@ -154,6 +202,9 @@
       loadingWorkspacePath = "";
       loadingTranscriptPath = "";
       openerError = "";
+      archiveError = "";
+      archiveActionSessionId = "";
+      clearPendingArchiveAction();
       transcriptQuery = "";
       transcriptRoleFilter = "all";
     } catch (error) {
@@ -168,6 +219,9 @@
       loadingWorkspacePath = "";
       loadingTranscriptPath = "";
       openerError = "";
+      archiveError = "";
+      archiveActionSessionId = "";
+      clearPendingArchiveAction();
       transcriptQuery = "";
       transcriptRoleFilter = "all";
     } finally {
@@ -179,11 +233,24 @@
     loadSessions();
   });
 
-  const filteredSessions = $derived(
+  const searchedSessions = $derived(
     sessions.filter((session) => {
       const value = `${session.title} ${session.cwd} ${session.preview} ${session.id}`.toLowerCase();
       return value.includes(query.trim().toLowerCase());
     }),
+  );
+
+  const visibleSessions = $derived(
+    searchedSessions.filter((session) =>
+      activeView === "archive" ? session.archived : !session.archived,
+    ),
+  );
+
+  const activeSessionCount = $derived(sessions.filter((session) => !session.archived).length);
+  const archivedSessionCount = $derived(sessions.filter((session) => session.archived).length);
+
+  const currentViewTitle = $derived(
+    activeView === "sessions" ? "Sessions" : activeView === "workspaces" ? "Workspaces" : "Archive",
   );
 
   const workspaces = $derived.by((): Workspace[] =>
@@ -207,7 +274,13 @@
   );
 
   const selectedSession = $derived(
-    filteredSessions.find((session) => session.id === selectedId) ?? filteredSessions[0] ?? null,
+    visibleSessions.find((session) => session.id === selectedId) ?? visibleSessions[0] ?? null,
+  );
+
+  const pendingArchiveSession = $derived(
+    pendingArchiveSessionId
+      ? (sessions.find((session) => session.id === pendingArchiveSessionId) ?? null)
+      : null,
   );
 
   const selectedWorkspace = $derived(
@@ -311,7 +384,7 @@
   });
 
   $effect(() => {
-    if (activeView !== "sessions" || !selectedSession) {
+    if ((activeView !== "sessions" && activeView !== "archive") || !selectedSession) {
       return;
     }
 
@@ -354,7 +427,12 @@
         <FolderOpen size={17} />
         Workspaces
       </button>
-      <button class="nav-item" type="button">
+      <button
+        class:active={activeView === "archive"}
+        class="nav-item"
+        type="button"
+        onclick={() => (activeView = "archive")}
+      >
         <Archive size={17} />
         Archive
       </button>
@@ -367,8 +445,8 @@
     <section class="storage-note" aria-label="Storage policy">
       <ShieldCheck size={18} />
       <div>
-        <strong>Read-first design</strong>
-        <span>Indexes and settings stay in one app data directory.</span>
+        <strong>Codex-safe design</strong>
+        <span>Writes are explicit, confirmed, and scoped to Codex-compatible actions.</span>
       </div>
     </section>
   </aside>
@@ -377,7 +455,7 @@
     <header class="panel-header">
       <div>
         <p class="eyebrow">Local Codex store</p>
-        <h1>{activeView === "sessions" ? "Sessions" : "Workspaces"}</h1>
+        <h1>{currentViewTitle}</h1>
         {#if codexHome?.path}
           <p class="home-path" title={codexHome.path}>{codexHome.path}</p>
         {/if}
@@ -397,19 +475,21 @@
       <input
         bind:value={query}
         type="search"
-        placeholder={activeView === "sessions"
-          ? "Search title, path, preview, or id"
-          : "Search workspace, path, source, or session"}
+        placeholder={activeView === "workspaces"
+          ? "Search workspace, path, source, or session"
+          : "Search title, path, preview, or id"}
       />
     </label>
 
     <div class="list-meta">
-      {#if activeView === "sessions"}
-        <span>{filteredSessions.length} sessions</span>
-      {:else}
+      {#if activeView === "workspaces"}
         <span>{filteredWorkspaces.length} workspaces / {filteredWorkspaceSessionCount} sessions</span>
+      {:else if activeView === "archive"}
+        <span>{visibleSessions.length} archived sessions / {archivedSessionCount} total</span>
+      {:else}
+        <span>{visibleSessions.length} active sessions / {activeSessionCount} total</span>
       {/if}
-      <span>{isLoading ? "Loading" : "Read only"}</span>
+      <span>{isLoading ? "Loading" : "Ready"}</span>
     </div>
 
     {#if openerError}
@@ -421,12 +501,16 @@
         <div class="state-panel">Reading local Codex history...</div>
       {:else if loadError}
         <div class="state-panel error">{loadError}</div>
-      {:else if activeView === "sessions" && filteredSessions.length === 0}
-        <div class="state-panel">No sessions match the current search.</div>
+      {:else if (activeView === "sessions" || activeView === "archive") && visibleSessions.length === 0}
+        <div class="state-panel">
+          {activeView === "archive"
+            ? "No archived sessions match the current search."
+            : "No active sessions match the current search."}
+        </div>
       {:else if activeView === "workspaces" && filteredWorkspaces.length === 0}
         <div class="state-panel">No workspaces match the current search.</div>
-      {:else if activeView === "sessions"}
-        {#each filteredSessions as session}
+      {:else if activeView === "sessions" || activeView === "archive"}
+        {#each visibleSessions as session}
           <button
             class:active={session.id === selectedSession?.id}
             class="session-row"
@@ -588,7 +672,7 @@
               class="related-session"
               type="button"
               onclick={() => {
-                activeView = "sessions";
+                activeView = session.archived ? "archive" : "sessions";
                 selectedId = session.id;
               }}
             >
@@ -598,10 +682,10 @@
           {/each}
         </div>
       </section>
-    {:else if activeView === "sessions" && selectedSession}
+    {:else if (activeView === "sessions" || activeView === "archive") && selectedSession}
       <header class="detail-header">
         <div class="detail-heading">
-          <p class="eyebrow">Selected session</p>
+          <p class="eyebrow">{selectedSession.archived ? "Archived session" : "Selected session"}</p>
           <h2 title={selectedSession.title}>{selectedSession.title}</h2>
         </div>
         <div class="detail-actions" aria-label="Session actions">
@@ -616,11 +700,63 @@
           >
             <FileSearch size={17} />
           </button>
+          <button
+            class="icon-button"
+            type="button"
+            aria-label={selectedSession.archived ? "Unarchive session" : "Archive session"}
+            title={selectedSession.archived ? "Unarchive session" : "Archive session"}
+            disabled={archiveActionSessionId === selectedSession.id}
+            onclick={requestSelectedSessionArchiveState}
+          >
+            <Archive size={17} />
+          </button>
           <button class="icon-button danger" type="button" aria-label="Move to trash">
             <Trash2 size={17} />
           </button>
         </div>
       </header>
+
+      {#if archiveError}
+        <div class="state-panel error action-error">{archiveError}</div>
+      {/if}
+
+      {#if pendingArchiveSession && pendingArchiveNextArchived !== null}
+        <section class="archive-confirmation" aria-label="Confirm archive action">
+          <div>
+            <h3>{pendingArchiveNextArchived ? "Archive this session?" : "Restore this session?"}</h3>
+            <p>
+              This will {pendingArchiveNextArchived ? "archive" : "restore"} the selected Codex
+              session by moving its transcript file and updating Codex state_5.sqlite. For best
+              results, close Codex Desktop before continuing.
+            </p>
+            <p class="confirmation-target" title={pendingArchiveSession.title}>
+              {pendingArchiveSession.title}
+            </p>
+          </div>
+          <div class="confirmation-actions">
+            <button
+              class="secondary-button"
+              type="button"
+              disabled={archiveActionSessionId === pendingArchiveSession.id}
+              onclick={clearPendingArchiveAction}
+            >
+              Cancel
+            </button>
+            <button
+              class="danger-button"
+              type="button"
+              disabled={archiveActionSessionId === pendingArchiveSession.id}
+              onclick={confirmSelectedSessionArchiveState}
+            >
+              {#if archiveActionSessionId === pendingArchiveSession.id}
+                Working...
+              {:else}
+                {pendingArchiveNextArchived ? "Archive" : "Restore"}
+              {/if}
+            </button>
+          </div>
+        </section>
+      {/if}
 
       <dl class="session-facts">
         <div>
@@ -767,7 +903,7 @@
       </section>
     {:else}
       <div class="empty-detail">
-        Select a {activeView === "sessions" ? "session" : "workspace"} to inspect its local
+        Select a {activeView === "workspaces" ? "workspace" : "session"} to inspect its local
         metadata.
       </div>
     {/if}
@@ -988,6 +1124,16 @@
     background: #f7f9fa;
   }
 
+  .icon-button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+
+  .icon-button:disabled:hover {
+    border-color: #d2d9df;
+    background: #ffffff;
+  }
+
   .icon-button.danger {
     color: #a33a32;
   }
@@ -1042,6 +1188,72 @@
     border-color: #e3b7b2;
     color: #8c312b;
     background: #fff7f6;
+  }
+
+  .action-error {
+    margin: 12px 0;
+  }
+
+  .archive-confirmation {
+    display: grid;
+    gap: 14px;
+    padding: 16px;
+    border: 1px solid #e2b8a5;
+    border-radius: 8px;
+    background: #fff8f3;
+  }
+
+  .archive-confirmation h3 {
+    margin-bottom: 6px;
+    color: #7b351c;
+  }
+
+  .archive-confirmation p {
+    margin-bottom: 0;
+    color: #65483b;
+    font-size: 13px;
+    line-height: 20px;
+  }
+
+  .confirmation-target {
+    overflow: hidden;
+    max-width: 100%;
+    margin-top: 8px;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .confirmation-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .secondary-button,
+  .danger-button {
+    min-height: 34px;
+    padding: 0 12px;
+    border-radius: 7px;
+    cursor: pointer;
+  }
+
+  .secondary-button {
+    border: 1px solid #cfd7dd;
+    color: #35414c;
+    background: #ffffff;
+  }
+
+  .danger-button {
+    border: 1px solid #b85042;
+    color: #ffffff;
+    background: #a33a32;
+  }
+
+  .secondary-button:disabled,
+  .danger-button:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
   }
 
   .session-row {

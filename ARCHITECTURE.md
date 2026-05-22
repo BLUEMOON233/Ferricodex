@@ -12,13 +12,14 @@ src/
     opener.ts             Frontend wrapper for the bounded backend open command
     workspace.ts          Workspace grouping and source classification
   routes/
-    +page.svelte          Session, workspace, and transcript UI
+    +page.svelte          Session, archive, workspace, and transcript UI
 
 src-tauri/
   src/
     lib.rs                Tauri command registration
                           and bounded local folder opening
     codex/
+      archive.rs          Codex-compatible session archive/unarchive transitions
       error.rs            Shared Codex data access errors
       home.rs             CODEX_HOME and platform path detection
       threads.rs          SQLite thread index reader
@@ -56,13 +57,20 @@ Workspace management should remain separate from history management:
   bounded line and message-size limits so large histories cannot block startup.
 - Current-session transcript search and role filtering should operate on the
   already-loaded in-memory message list rather than reading additional files.
+- Archive/unarchive should preserve Codex's own storage semantics: move rollout
+  JSONL files between `sessions/` and `archived_sessions/`, update
+  `threads.archived`, `threads.archived_at`, and `threads.rollout_path`, and
+  require user confirmation.
 - Cleanup features should be advisory and user-confirmed. The app must not
   automatically delete files from `~/.codex`, `~/Documents/Codex`, or project
   directories.
 
 ## Write Boundaries
 
-Codex-owned files are the source of truth and should be read-only by default. Any write operation must be narrow, user-confirmed, and backed by a recoverable path.
+Codex-owned files are the source of truth and should be read-only by default.
+Any write operation must be narrow, user-confirmed, and backed by a recoverable
+path. Session archive/unarchive is the first supported write path and must stay
+limited to Codex-compatible rollout moves plus the matching `threads` row update.
 
 App-owned files are limited to settings, local tags, disposable indexes, and small bounded logs.
 

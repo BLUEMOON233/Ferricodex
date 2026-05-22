@@ -7,6 +7,17 @@ pub enum CodexError {
     HomeNotFound(PathBuf),
     StateDbNotFound(PathBuf),
     HomeDirUnavailable,
+    ThreadNotFound(String),
+    ArchiveOperation(String),
+    ArchiveDirectoryCreate {
+        path: PathBuf,
+        source: std::io::Error,
+    },
+    ArchiveFileMove {
+        from: PathBuf,
+        to: PathBuf,
+        source: std::io::Error,
+    },
     TranscriptPathUnavailable,
     TranscriptRead {
         path: PathBuf,
@@ -34,6 +45,27 @@ impl fmt::Display for CodexError {
                     "Could not determine the current user's home directory"
                 )
             }
+            Self::ThreadNotFound(thread_id) => {
+                write!(formatter, "Codex thread was not found: {thread_id}")
+            }
+            Self::ArchiveOperation(message) => {
+                write!(formatter, "Could not change Codex archive state: {message}")
+            }
+            Self::ArchiveDirectoryCreate { path, source } => {
+                write!(
+                    formatter,
+                    "Could not create archive directory {}: {source}",
+                    path.display()
+                )
+            }
+            Self::ArchiveFileMove { from, to, source } => {
+                write!(
+                    formatter,
+                    "Could not move transcript from {} to {}: {source}",
+                    from.display(),
+                    to.display()
+                )
+            }
             Self::TranscriptPathUnavailable => {
                 write!(formatter, "Transcript path is unavailable")
             }
@@ -54,6 +86,8 @@ impl fmt::Display for CodexError {
 impl Error for CodexError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
         match self {
+            Self::ArchiveDirectoryCreate { source, .. } => Some(source),
+            Self::ArchiveFileMove { source, .. } => Some(source),
             Self::TranscriptRead { source, .. } => Some(source),
             Self::Sqlite(error) => Some(error),
             _ => None,
