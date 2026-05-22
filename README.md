@@ -76,8 +76,8 @@ npm run tauri build
 ## Current Status
 
 The project can currently read local Codex thread metadata from `state_5.sqlite`
-in read-only mode, render the session list in the desktop UI, and group sessions
-by workspace path.
+in read-only mode, render searchable session and workspace views, reveal local
+folders, and parse a bounded transcript preview only when a session is selected.
 
 Completed:
 
@@ -90,15 +90,15 @@ Completed:
 - [x] Group sessions by normalized `cwd` so one workspace can show many related conversations.
 - [x] Classify workspace sources, including user projects, `~/Documents/Codex` task folders, and `$CODEX_HOME/worktrees`.
 - [x] Show workspace metadata lazily: existence, size, last modified time, and related session count.
+- [x] Split frontend API, formatting, opener, and workspace helpers out of the main Svelte page.
+- [x] Split Codex backend access into focused `home`, `threads`, `transcript`, and `workspaces` modules.
+- [x] Wire folder buttons through a bounded backend opener command for user-home directories.
+- [x] Parse transcript JSONL on demand for the selected session with bounded read-only loading.
 - [x] Keep generated build outputs and dependency folders out of Git.
 - [x] Push the initial repository to GitHub.
 
 Next:
 
-- [ ] Split the current single-page Svelte implementation into small UI and data helper modules.
-- [ ] Split `src-tauri/src/codex.rs` into `home`, `threads`, `transcript`, and `workspaces` modules.
-- [ ] Wire the folder buttons to reveal Codex home and selected workspaces with `@tauri-apps/plugin-opener`.
-- [ ] Parse transcript JSONL only when a session is selected.
 - [ ] Launch `codex resume <session-id>` through platform-specific terminal helpers.
 - [ ] Add UI-level tests or an automation-friendly test route for reliable desktop interaction checks.
 - [ ] Add conservative cleanup suggestions for empty or orphaned workspaces, with no automatic deletion.

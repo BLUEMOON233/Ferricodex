@@ -1,5 +1,5 @@
-import { openPath } from "@tauri-apps/plugin-opener";
+import { invoke } from "@tauri-apps/api/core";
 
 export function openLocalPath(path: string) {
-  return openPath(path);
+  return invoke<void>("open_local_path", { path });
 }

@@ -13,10 +13,12 @@
   } from "@lucide/svelte";
   import {
     getCodexHomeStatus,
+    getCodexTranscript,
     getWorkspaceMetadata,
     listCodexThreads,
     toSession,
     type CodexHomeStatus,
+    type CodexTranscript,
     type Session,
     type WorkspaceMetadata,
   } from "$lib/codex";
@@ -37,7 +39,10 @@
   let codexHome = $state<CodexHomeStatus | null>(null);
   let workspaceMetadataByPath = $state<Record<string, WorkspaceMetadata>>({});
   let workspaceMetadataErrorsByPath = $state<Record<string, string>>({});
+  let transcriptByPath = $state<Record<string, CodexTranscript>>({});
+  let transcriptErrorsByPath = $state<Record<string, string>>({});
   let loadingWorkspacePath = $state("");
+  let loadingTranscriptPath = $state("");
   let isLoading = $state(true);
   let loadError = $state("");
   let openerError = $state("");
@@ -87,6 +92,43 @@
     await openPathWithFeedback(selectedWorkspace.path, "workspace folder");
   }
 
+  async function loadTranscriptForSession(session: Session, force = false) {
+    const path = session.rolloutPath.trim();
+
+    if (!path) {
+      transcriptErrorsByPath = {
+        ...transcriptErrorsByPath,
+        [session.id]: "Transcript path is unavailable.",
+      };
+      return;
+    }
+
+    if (loadingTranscriptPath === path || (!force && transcriptByPath[path])) {
+      return;
+    }
+
+    loadingTranscriptPath = path;
+    const { [path]: _clearedError, ...remainingErrors } = transcriptErrorsByPath;
+    transcriptErrorsByPath = remainingErrors;
+
+    try {
+      const transcript = await getCodexTranscript(path);
+      transcriptByPath = {
+        ...transcriptByPath,
+        [path]: transcript,
+      };
+    } catch (error) {
+      transcriptErrorsByPath = {
+        ...transcriptErrorsByPath,
+        [path]: errorMessage(error),
+      };
+    } finally {
+      if (loadingTranscriptPath === path) {
+        loadingTranscriptPath = "";
+      }
+    }
+  }
+
   async function loadSessions() {
     isLoading = true;
     loadError = "";
@@ -99,7 +141,10 @@
       selectedWorkspaceId = "";
       workspaceMetadataByPath = {};
       workspaceMetadataErrorsByPath = {};
+      transcriptByPath = {};
+      transcriptErrorsByPath = {};
       loadingWorkspacePath = "";
+      loadingTranscriptPath = "";
       openerError = "";
     } catch (error) {
       loadError = errorMessage(error);
@@ -108,7 +153,10 @@
       selectedWorkspaceId = "";
       workspaceMetadataByPath = {};
       workspaceMetadataErrorsByPath = {};
+      transcriptByPath = {};
+      transcriptErrorsByPath = {};
       loadingWorkspacePath = "";
+      loadingTranscriptPath = "";
       openerError = "";
     } finally {
       isLoading = false;
@@ -156,6 +204,24 @@
       null,
   );
 
+  const selectedTranscriptPath = $derived(selectedSession?.rolloutPath.trim() ?? "");
+
+  const selectedTranscript = $derived(
+    selectedTranscriptPath ? (transcriptByPath[selectedTranscriptPath] ?? null) : null,
+  );
+
+  const selectedTranscriptError = $derived(
+    selectedTranscriptPath
+      ? (transcriptErrorsByPath[selectedTranscriptPath] ?? "")
+      : selectedSession
+        ? "Transcript path is unavailable."
+        : "",
+  );
+
+  const selectedTranscriptIsLoading = $derived(
+    selectedTranscriptPath !== "" && loadingTranscriptPath === selectedTranscriptPath,
+  );
+
   const selectedWorkspaceMetadata = $derived(
     selectedWorkspace ? (workspaceMetadataByPath[selectedWorkspace.id] ?? null) : null,
   );
@@ -197,6 +263,14 @@
           loadingWorkspacePath = "";
         }
       });
+  });
+
+  $effect(() => {
+    if (activeView !== "sessions" || !selectedSession) {
+      return;
+    }
+
+    loadTranscriptForSession(selectedSession);
   });
 </script>
 
@@ -489,7 +563,12 @@
           <button class="icon-button" type="button" aria-label="Resume session">
             <Play size={17} />
           </button>
-          <button class="icon-button" type="button" aria-label="Search transcript">
+          <button
+            class="icon-button"
+            type="button"
+            aria-label="Reload transcript"
+            onclick={() => selectedSession && loadTranscriptForSession(selectedSession, true)}
+          >
             <FileSearch size={17} />
           </button>
           <button class="icon-button danger" type="button" aria-label="Move to trash">
@@ -530,15 +609,71 @@
         <p>{selectedSession.preview}</p>
       </section>
 
-      <section class="roadmap">
-        <h3>Initial scope</h3>
-        <div class="scope-grid">
-          <span>Read Codex SQLite thread index</span>
-          <span>Group sessions by workspace path</span>
-          <span>Inspect workspace metadata lazily</span>
-          <span>Parse transcripts on demand</span>
-          <span>Keep app metadata isolated</span>
+      <section class="transcript">
+        <div class="section-heading">
+          <h3>Transcript</h3>
+          <span>
+            {#if selectedTranscriptIsLoading}
+              Loading
+            {:else if selectedTranscript?.truncated}
+              Truncated
+            {:else}
+              On demand
+            {/if}
+          </span>
         </div>
+
+        {#if selectedTranscriptIsLoading && !selectedTranscript}
+          <div class="state-panel">Reading transcript JSONL for the selected session...</div>
+        {:else if selectedTranscriptError}
+          <div class="state-panel error">{selectedTranscriptError}</div>
+        {:else if selectedTranscript}
+          {#if !selectedTranscript.exists}
+            <div class="state-panel">Transcript file was not found at {selectedTranscript.path}.</div>
+          {:else}
+            <dl class="metadata-grid transcript-stats">
+              <div>
+                <dt>Lines Read</dt>
+                <dd>{formatCount(selectedTranscript.lineCount)}</dd>
+              </div>
+              <div>
+                <dt>Messages</dt>
+                <dd>{formatCount(selectedTranscript.messages.length)}</dd>
+              </div>
+              <div>
+                <dt>Invalid Lines</dt>
+                <dd>{formatCount(selectedTranscript.invalidLineCount)}</dd>
+              </div>
+            </dl>
+
+            {#if selectedTranscript.truncated}
+              <p class="metadata-note">
+                Transcript parsing stopped at the safety limit, so this preview is partial.
+              </p>
+            {/if}
+
+            {#if selectedTranscript.messages.length === 0}
+              <div class="state-panel">No displayable messages were found in this transcript.</div>
+            {:else}
+              <div class="transcript-list" aria-label="Transcript messages">
+                {#each selectedTranscript.messages as message}
+                  <article class="transcript-message">
+                    <div class="message-meta">
+                      <span class="message-role">{message.role}</span>
+                      <span>Line {message.lineNumber}</span>
+                      {#if message.timestamp}
+                        <time datetime={message.timestamp}>{message.timestamp}</time>
+                      {/if}
+                    </div>
+                    <pre class="transcript-text">{message.text}</pre>
+                  </article>
+                {/each}
+              </div>
+            {/if}
+          {/if}
+        {:else}
+          <div class="state-panel">Transcript has not loaded yet.</div>
+        {/if}
       </section>
     {:else}
       <div class="empty-detail">
@@ -887,7 +1022,7 @@
   .preview,
   .workspace-metadata,
   .related-sessions,
-  .roadmap {
+  .transcript {
     border: 1px solid #dbe1e5;
     border-radius: 8px;
     background: #ffffff;
@@ -917,7 +1052,7 @@
   .preview,
   .workspace-metadata,
   .related-sessions,
-  .roadmap {
+  .transcript {
     padding: 17px;
   }
 
@@ -967,6 +1102,51 @@
     line-height: 18px;
   }
 
+  .transcript-stats {
+    margin-bottom: 14px;
+  }
+
+  .transcript-list {
+    display: grid;
+    gap: 10px;
+    margin-top: 14px;
+  }
+
+  .transcript-message {
+    display: grid;
+    gap: 8px;
+    padding: 12px;
+    border: 1px solid #e0e6ea;
+    border-radius: 7px;
+    background: #f9fbfc;
+  }
+
+  .message-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    color: #71808b;
+    font-size: 12px;
+    line-height: 17px;
+  }
+
+  .message-role {
+    color: #0d5c63;
+    font-weight: 700;
+    text-transform: capitalize;
+  }
+
+  .transcript-text {
+    overflow-x: auto;
+    margin: 0;
+    color: #28343d;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    font-size: 12px;
+    line-height: 19px;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
   .related-list {
     display: grid;
     gap: 8px;
@@ -1009,19 +1189,4 @@
     line-height: 17px;
   }
 
-  .scope-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
-  }
-
-  .scope-grid span {
-    padding: 10px 11px;
-    border: 1px solid #dce4e8;
-    border-radius: 7px;
-    color: #42505b;
-    background: #f7fafb;
-    font-size: 13px;
-    line-height: 19px;
-  }
 </style>

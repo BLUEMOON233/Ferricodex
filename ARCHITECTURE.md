@@ -6,22 +6,30 @@ Codex History Manager is split into a small Rust backend and a Svelte desktop UI
 
 ```text
 src/
-  routes/                 Svelte UI
+  lib/
+    codex.ts              Tauri command wrappers and Codex DTO mapping
+    formatting.ts         Date, size, and count formatting helpers
+    opener.ts             Frontend wrapper for the bounded backend open command
+    workspace.ts          Workspace grouping and source classification
+  routes/
+    +page.svelte          Session, workspace, and transcript UI
 
 src-tauri/
   src/
     lib.rs                Tauri command registration
+                          and bounded local folder opening
+    codex/
+      error.rs            Shared Codex data access errors
+      home.rs             CODEX_HOME and platform path detection
+      threads.rs          SQLite thread index reader
+      transcript.rs       Bounded JSONL transcript parser
+      workspaces.rs       Read-only workspace filesystem metadata
 ```
 
-Future Rust modules should keep Codex-owned data access separate from app-owned state:
+Future app-owned and platform modules should remain separate from Codex-owned data access:
 
 ```text
 src-tauri/src/
-  codex/
-    home.rs               CODEX_HOME and platform path detection
-    threads.rs            SQLite thread index reader
-    transcript.rs         JSONL transcript parser
-    workspaces.rs          cwd grouping and read-only workspace metadata
   app_state/
     store.rs              app-owned SQLite/settings storage
     index.rs              disposable search index
@@ -44,6 +52,8 @@ Workspace management should remain separate from history management:
 - The workspace view groups sessions by normalized `cwd`.
 - Directory size and filesystem metadata should be loaded lazily, not during the
   initial session index read.
+- Transcript JSONL files should be parsed only after a session is selected, with
+  bounded line and message-size limits so large histories cannot block startup.
 - Cleanup features should be advisory and user-confirmed. The app must not
   automatically delete files from `~/.codex`, `~/Documents/Codex`, or project
   directories.

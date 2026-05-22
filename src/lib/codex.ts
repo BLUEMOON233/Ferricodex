@@ -26,6 +26,22 @@ export type WorkspaceMetadata = {
   scanTruncated: boolean;
 };
 
+export type CodexTranscriptMessage = {
+  lineNumber: number;
+  timestamp: string | null;
+  role: string;
+  text: string;
+};
+
+export type CodexTranscript = {
+  path: string;
+  exists: boolean;
+  lineCount: number;
+  invalidLineCount: number;
+  truncated: boolean;
+  messages: CodexTranscriptMessage[];
+};
+
 export type CodexThread = {
   id: string;
   title: string;
@@ -67,6 +83,10 @@ export function getCodexHomeStatus() {
 
 export function listCodexThreads() {
   return invoke<CodexThread[]>("list_codex_threads");
+}
+
+export function getCodexTranscript(path: string) {
+  return invoke<CodexTranscript>("get_codex_transcript", { path });
 }
 
 export function getWorkspaceMetadata(path: string) {
