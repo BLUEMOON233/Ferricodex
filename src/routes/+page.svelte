@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { invoke } from "@tauri-apps/api/core";
   import {
     Archive,
     Database,
@@ -12,68 +11,23 @@
     ShieldCheck,
     Trash2,
   } from "@lucide/svelte";
-
-  type Session = {
-    id: string;
-    title: string;
-    cwd: string;
-    updatedAt: number;
-    updatedAtLabel: string;
-    preview: string;
-    model: string | null;
-    archived: boolean;
-    rolloutPath: string;
-  };
-
-  type ViewMode = "sessions" | "workspaces";
-  type WorkspaceSource = "codexTaskFolder" | "codexWorktree" | "userProject";
-
-  type Workspace = {
-    id: string;
-    name: string;
-    path: string;
-    source: WorkspaceSource;
-    sourceLabel: string;
-    sessions: Session[];
-    sessionCount: number;
-    activeCount: number;
-    archivedCount: number;
-    updatedAt: number;
-    updatedAtLabel: string;
-  };
-
-  type WorkspaceMetadata = {
-    path: string;
-    exists: boolean;
-    isDirectory: boolean;
-    isFile: boolean;
-    sizeBytes: number | null;
-    fileCount: number | null;
-    directoryCount: number | null;
-    modifiedAtMs: number | null;
-    scanTruncated: boolean;
-  };
-
-  type CodexThread = {
-    id: string;
-    title: string;
-    cwd: string;
-    preview: string;
-    rolloutPath: string;
-    createdAt: number;
-    updatedAt: number;
-    createdAtMs: number;
-    updatedAtMs: number;
-    model: string | null;
-    archived: boolean;
-  };
-
-  type CodexHomeStatus = {
-    path: string;
-    exists: boolean;
-    stateDbExists: boolean;
-    source: "env" | "default";
-  };
+  import {
+    getCodexHomeStatus,
+    getWorkspaceMetadata,
+    listCodexThreads,
+    toSession,
+    type CodexHomeStatus,
+    type Session,
+    type WorkspaceMetadata,
+  } from "$lib/codex";
+  import { formatCount, formatDate, formatSize } from "$lib/formatting";
+  import {
+    groupSessionsByWorkspace,
+    workspaceSourceDescription,
+    type ViewMode,
+    type Workspace,
+  } from "$lib/workspace";
+  import { openLocalPath } from "$lib/opener";
 
   let query = $state("");
   let activeView = $state<ViewMode>("sessions");
@@ -86,122 +40,51 @@
   let loadingWorkspacePath = $state("");
   let isLoading = $state(true);
   let loadError = $state("");
+  let openerError = $state("");
 
-  function formatDate(timestampMs: number) {
-    return new Intl.DateTimeFormat(undefined, {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    }).format(new Date(timestampMs));
+  function errorMessage(error: unknown) {
+    return error instanceof Error ? error.message : String(error);
   }
 
-  function toSession(thread: CodexThread): Session {
-    return {
-      id: thread.id,
-      title: thread.title || "Untitled session",
-      cwd: thread.cwd,
-      updatedAt: thread.updatedAtMs,
-      updatedAtLabel: formatDate(thread.updatedAtMs),
-      preview: thread.preview || "No preview available.",
-      model: thread.model,
-      archived: thread.archived,
-      rolloutPath: thread.rolloutPath,
-    };
+  async function openPathWithFeedback(path: string | null | undefined, label: string) {
+    const trimmedPath = path?.trim() ?? "";
+
+    if (!trimmedPath) {
+      openerError = `${label} path is unavailable.`;
+      return;
+    }
+
+    try {
+      openerError = "";
+      await openLocalPath(trimmedPath);
+    } catch (error) {
+      openerError = `Could not open ${label}: ${errorMessage(error)}`;
+    }
   }
 
-  function normalizeWorkspacePath(path: string) {
-    const trimmed = path.trim();
-
-    if (!trimmed) {
-      return "Unknown workspace";
+  async function openCodexHomeDirectory() {
+    if (!codexHome?.exists) {
+      openerError = codexHome?.path
+        ? "Codex home directory does not exist on disk."
+        : "Codex home directory is unavailable.";
+      return;
     }
 
-    const normalized = trimmed.replace(/\\/g, "/");
-
-    if (normalized === "/" || /^[A-Za-z]:\/?$/.test(normalized)) {
-      return normalized;
-    }
-
-    return normalized.replace(/\/+$/, "");
+    await openPathWithFeedback(codexHome.path, "Codex home directory");
   }
 
-  function workspaceName(path: string) {
-    const normalized = normalizeWorkspacePath(path);
-    const parts = normalized.split("/").filter(Boolean);
-
-    return parts.at(-1) ?? normalized;
-  }
-
-  function isSameOrChildPath(path: string, root: string) {
-    const normalizedPath = normalizeWorkspacePath(path).toLowerCase();
-    const normalizedRoot = normalizeWorkspacePath(root).toLowerCase();
-
-    return normalizedPath === normalizedRoot || normalizedPath.startsWith(`${normalizedRoot}/`);
-  }
-
-  function classifyWorkspace(path: string): WorkspaceSource {
-    if (codexHome?.path && isSameOrChildPath(path, `${codexHome.path}/worktrees`)) {
-      return "codexWorktree";
+  async function openSelectedWorkspaceFolder() {
+    if (!selectedWorkspace) {
+      openerError = "No workspace is selected.";
+      return;
     }
 
-    if (normalizeWorkspacePath(path).includes("/Documents/Codex/")) {
-      return "codexTaskFolder";
+    if (selectedWorkspaceMetadata && !selectedWorkspaceMetadata.exists) {
+      openerError = "Selected workspace does not exist on disk.";
+      return;
     }
 
-    return "userProject";
-  }
-
-  function workspaceSourceLabel(source: WorkspaceSource) {
-    if (source === "codexTaskFolder") {
-      return "Codex Task Folder";
-    }
-
-    if (source === "codexWorktree") {
-      return "Codex Worktree";
-    }
-
-    return "User Project";
-  }
-
-  function workspaceSourceDescription(source: WorkspaceSource) {
-    if (source === "codexTaskFolder") {
-      return "Created by the desktop app as a task working directory.";
-    }
-
-    if (source === "codexWorktree") {
-      return "Managed under the Codex home worktrees directory.";
-    }
-
-    return "A project or folder selected as a Codex working directory.";
-  }
-
-  function formatSize(bytes: number | null | undefined) {
-    if (bytes === null || bytes === undefined) {
-      return "Unknown";
-    }
-
-    const units = ["B", "KB", "MB", "GB", "TB"];
-    let value = bytes;
-    let unitIndex = 0;
-
-    while (value >= 1024 && unitIndex < units.length - 1) {
-      value /= 1024;
-      unitIndex += 1;
-    }
-
-    const digits = value >= 10 || unitIndex === 0 ? 0 : 1;
-
-    return `${value.toFixed(digits)} ${units[unitIndex]}`;
-  }
-
-  function formatCount(value: number | null | undefined) {
-    if (value === null || value === undefined) {
-      return "Unknown";
-    }
-
-    return new Intl.NumberFormat().format(value);
+    await openPathWithFeedback(selectedWorkspace.path, "workspace folder");
   }
 
   async function loadSessions() {
@@ -209,22 +92,24 @@
     loadError = "";
 
     try {
-      codexHome = await invoke<CodexHomeStatus>("get_codex_home_status");
-      const threads = await invoke<CodexThread[]>("list_codex_threads");
+      codexHome = await getCodexHomeStatus();
+      const threads = await listCodexThreads();
       sessions = threads.map(toSession);
       selectedId = sessions[0]?.id ?? "";
       selectedWorkspaceId = "";
       workspaceMetadataByPath = {};
       workspaceMetadataErrorsByPath = {};
       loadingWorkspacePath = "";
+      openerError = "";
     } catch (error) {
-      loadError = error instanceof Error ? error.message : String(error);
+      loadError = errorMessage(error);
       sessions = [];
       selectedId = "";
       selectedWorkspaceId = "";
       workspaceMetadataByPath = {};
       workspaceMetadataErrorsByPath = {};
       loadingWorkspacePath = "";
+      openerError = "";
     } finally {
       isLoading = false;
     }
@@ -241,48 +126,9 @@
     }),
   );
 
-  const workspaces = $derived.by((): Workspace[] => {
-    const workspaceMap = new Map<string, Workspace>();
-
-    for (const session of sessions) {
-      const id = normalizeWorkspacePath(session.cwd);
-      const existing = workspaceMap.get(id);
-
-      if (existing) {
-        existing.sessions.push(session);
-        existing.sessionCount += 1;
-        existing.activeCount += session.archived ? 0 : 1;
-        existing.archivedCount += session.archived ? 1 : 0;
-
-        if (session.updatedAt > existing.updatedAt) {
-          existing.updatedAt = session.updatedAt;
-          existing.updatedAtLabel = session.updatedAtLabel;
-        }
-
-        continue;
-      }
-
-      const source = classifyWorkspace(session.cwd);
-
-      workspaceMap.set(id, {
-        id,
-        name: workspaceName(session.cwd),
-        path: session.cwd,
-        source,
-        sourceLabel: workspaceSourceLabel(source),
-        sessions: [session],
-        sessionCount: 1,
-        activeCount: session.archived ? 0 : 1,
-        archivedCount: session.archived ? 1 : 0,
-        updatedAt: session.updatedAt,
-        updatedAtLabel: session.updatedAtLabel,
-      });
-    }
-
-    return Array.from(workspaceMap.values()).sort(
-      (left, right) => right.updatedAt - left.updatedAt || left.path.localeCompare(right.path),
-    );
-  });
+  const workspaces = $derived.by((): Workspace[] =>
+    groupSessionsByWorkspace(sessions, codexHome?.path),
+  );
 
   const filteredWorkspaces = $derived(
     workspaces.filter((workspace) => {
@@ -333,7 +179,7 @@
     const { [workspaceId]: _clearedError, ...remainingErrors } = workspaceMetadataErrorsByPath;
     workspaceMetadataErrorsByPath = remainingErrors;
 
-    invoke<WorkspaceMetadata>("get_workspace_metadata", { path: selectedWorkspace.path })
+    getWorkspaceMetadata(selectedWorkspace.path)
       .then((metadata) => {
         workspaceMetadataByPath = {
           ...workspaceMetadataByPath,
@@ -417,7 +263,12 @@
           <p class="home-path" title={codexHome.path}>{codexHome.path}</p>
         {/if}
       </div>
-      <button class="icon-button" type="button" aria-label="Open Codex data directory">
+      <button
+        class="icon-button"
+        type="button"
+        aria-label="Open Codex data directory"
+        onclick={openCodexHomeDirectory}
+      >
         <FolderOpen size={18} />
       </button>
     </header>
@@ -441,6 +292,10 @@
       {/if}
       <span>{isLoading ? "Loading" : "Read only"}</span>
     </div>
+
+    {#if openerError}
+      <div class="state-panel error action-error">{openerError}</div>
+    {/if}
 
     <div class="sessions" aria-live="polite">
       {#if isLoading}
@@ -499,7 +354,12 @@
           <h2>{selectedWorkspace.name}</h2>
         </div>
         <div class="detail-actions" aria-label="Workspace actions">
-          <button class="icon-button" type="button" aria-label="Open workspace folder">
+          <button
+            class="icon-button"
+            type="button"
+            aria-label="Open workspace folder"
+            onclick={openSelectedWorkspaceFolder}
+          >
             <FolderOpen size={17} />
           </button>
         </div>
