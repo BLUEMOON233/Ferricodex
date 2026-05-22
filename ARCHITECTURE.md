@@ -54,6 +54,8 @@ Workspace management should remain separate from history management:
   initial session index read.
 - Transcript JSONL files should be parsed only after a session is selected, with
   bounded line and message-size limits so large histories cannot block startup.
+- Current-session transcript search and role filtering should operate on the
+  already-loaded in-memory message list rather than reading additional files.
 - Cleanup features should be advisory and user-confirmed. The app must not
   automatically delete files from `~/.codex`, `~/Documents/Codex`, or project
   directories.

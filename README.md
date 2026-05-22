@@ -2,7 +2,7 @@
 
 A lightweight, local-first desktop manager for Codex conversation history.
 
-The project is intentionally scoped around Codex history rather than a broader agent switcher. The first stable target is a read-first UI for browsing, searching, previewing, and resuming local Codex sessions.
+The project is intentionally scoped around Codex history rather than a broader agent switcher. The first stable target is a read-first UI for browsing, searching, previewing, and organizing local Codex sessions.
 
 ## Stack
 
@@ -77,7 +77,8 @@ npm run tauri build
 
 The project can currently read local Codex thread metadata from `state_5.sqlite`
 in read-only mode, render searchable session and workspace views, reveal local
-folders, and parse a bounded transcript preview only when a session is selected.
+folders, and parse/filter a bounded transcript preview only when a session is
+selected.
 
 Completed:
 
@@ -94,11 +95,13 @@ Completed:
 - [x] Split Codex backend access into focused `home`, `threads`, `transcript`, and `workspaces` modules.
 - [x] Wire folder buttons through a bounded backend opener command for user-home directories.
 - [x] Parse transcript JSONL on demand for the selected session with bounded read-only loading.
+- [x] Filter the loaded transcript preview by text and message role without reading extra files.
 - [x] Keep generated build outputs and dependency folders out of Git.
 - [x] Push the initial repository to GitHub.
 
 Next:
 
-- [ ] Launch `codex resume <session-id>` through platform-specific terminal helpers.
 - [ ] Add UI-level tests or an automation-friendly test route for reliable desktop interaction checks.
+- [ ] Expand selected-session filtering into an app-owned global transcript search index.
 - [ ] Add conservative cleanup suggestions for empty or orphaned workspaces, with no automatic deletion.
+- [ ] Investigate official Codex Desktop deep links before adding any resume launcher.

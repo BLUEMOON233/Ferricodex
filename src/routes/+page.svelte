@@ -46,9 +46,17 @@
   let isLoading = $state(true);
   let loadError = $state("");
   let openerError = $state("");
+  let transcriptQuery = $state("");
+  let transcriptRoleFilter = $state("all");
+  let lastTranscriptPath = "";
 
   function errorMessage(error: unknown) {
     return error instanceof Error ? error.message : String(error);
+  }
+
+  function resetTranscriptFilters() {
+    transcriptQuery = "";
+    transcriptRoleFilter = "all";
   }
 
   async function openPathWithFeedback(path: string | null | undefined, label: string) {
@@ -146,6 +154,8 @@
       loadingWorkspacePath = "";
       loadingTranscriptPath = "";
       openerError = "";
+      transcriptQuery = "";
+      transcriptRoleFilter = "all";
     } catch (error) {
       loadError = errorMessage(error);
       sessions = [];
@@ -158,6 +168,8 @@
       loadingWorkspacePath = "";
       loadingTranscriptPath = "";
       openerError = "";
+      transcriptQuery = "";
+      transcriptRoleFilter = "all";
     } finally {
       isLoading = false;
     }
@@ -221,6 +233,39 @@
   const selectedTranscriptIsLoading = $derived(
     selectedTranscriptPath !== "" && loadingTranscriptPath === selectedTranscriptPath,
   );
+
+  const transcriptRoleOptions = $derived.by(() => {
+    const roles = selectedTranscript?.messages.map((message) => message.role).filter(Boolean) ?? [];
+    return [...new Set(roles)].sort((left, right) => left.localeCompare(right));
+  });
+
+  const filteredTranscriptMessages = $derived.by(() => {
+    const messages = selectedTranscript?.messages ?? [];
+    const normalizedQuery = transcriptQuery.trim().toLowerCase();
+
+    return messages.filter((message) => {
+      const matchesRole = transcriptRoleFilter === "all" || message.role === transcriptRoleFilter;
+      const searchableValue = `${message.role} ${message.lineNumber} ${message.timestamp ?? ""} ${message.text}`.toLowerCase();
+      const matchesQuery = !normalizedQuery || searchableValue.includes(normalizedQuery);
+
+      return matchesRole && matchesQuery;
+    });
+  });
+
+  const transcriptFilterActive = $derived(
+    transcriptQuery.trim() !== "" || transcriptRoleFilter !== "all",
+  );
+
+  $effect(() => {
+    const path = selectedTranscriptPath;
+
+    if (path === lastTranscriptPath) {
+      return;
+    }
+
+    lastTranscriptPath = path;
+    resetTranscriptFilters();
+  });
 
   const selectedWorkspaceMetadata = $derived(
     selectedWorkspace ? (workspaceMetadataByPath[selectedWorkspace.id] ?? null) : null,
@@ -423,9 +468,9 @@
   <section class="detail-panel" aria-label="Session details">
     {#if activeView === "workspaces" && selectedWorkspace}
       <header class="detail-header">
-        <div>
+        <div class="detail-heading">
           <p class="eyebrow">Selected workspace</p>
-          <h2>{selectedWorkspace.name}</h2>
+          <h2 title={selectedWorkspace.name}>{selectedWorkspace.name}</h2>
         </div>
         <div class="detail-actions" aria-label="Workspace actions">
           <button
@@ -555,9 +600,9 @@
       </section>
     {:else if activeView === "sessions" && selectedSession}
       <header class="detail-header">
-        <div>
+        <div class="detail-heading">
           <p class="eyebrow">Selected session</p>
-          <h2>{selectedSession.title}</h2>
+          <h2 title={selectedSession.title}>{selectedSession.title}</h2>
         </div>
         <div class="detail-actions" aria-label="Session actions">
           <button class="icon-button" type="button" aria-label="Resume session">
@@ -652,11 +697,56 @@
               </p>
             {/if}
 
+            <div class="transcript-filters" aria-label="Transcript filters">
+              <label class="transcript-search">
+                <Search size={16} />
+                <input
+                  bind:value={transcriptQuery}
+                  aria-label="Search transcript messages"
+                  type="search"
+                  placeholder="Search transcript messages"
+                />
+              </label>
+
+              <label class="role-filter">
+                <span>Role</span>
+                <select bind:value={transcriptRoleFilter}>
+                  <option value="all">All</option>
+                  {#each transcriptRoleOptions as role}
+                    <option value={role}>{role}</option>
+                  {/each}
+                </select>
+              </label>
+            </div>
+
+            <div class="filter-summary">
+              {#if transcriptFilterActive}
+                <span>
+                  Showing {formatCount(filteredTranscriptMessages.length)} of {formatCount(
+                    selectedTranscript.messages.length,
+                  )} messages
+                </span>
+                <button
+                  type="button"
+                  onclick={() => {
+                    transcriptQuery = "";
+                    transcriptRoleFilter = "all";
+                  }}
+                >
+                  Clear filters
+                </button>
+              {:else}
+                <span>Showing all {formatCount(selectedTranscript.messages.length)} messages</span>
+              {/if}
+            </div>
+
             {#if selectedTranscript.messages.length === 0}
               <div class="state-panel">No displayable messages were found in this transcript.</div>
+            {:else if filteredTranscriptMessages.length === 0}
+              <div class="state-panel">No transcript messages match the current filters.</div>
             {:else}
               <div class="transcript-list" aria-label="Transcript messages">
-                {#each selectedTranscript.messages as message}
+                {#each filteredTranscriptMessages as message}
                   <article class="transcript-message">
                     <div class="message-meta">
                       <span class="message-role">{message.role}</span>
@@ -689,9 +779,16 @@
     box-sizing: border-box;
   }
 
+  :global(html) {
+    height: 100%;
+    overflow: hidden;
+  }
+
   :global(body) {
     margin: 0;
+    height: 100%;
     min-width: 960px;
+    overflow: hidden;
     color: #1a1f24;
     background: #f5f7f8;
     font-family:
@@ -700,14 +797,17 @@
   }
 
   :global(button),
-  :global(input) {
+  :global(input),
+  :global(select) {
     font: inherit;
   }
 
   .app-shell {
     display: grid;
     grid-template-columns: 248px minmax(320px, 420px) minmax(480px, 1fr);
-    min-height: 100vh;
+    height: 100vh;
+    min-height: 0;
+    overflow: hidden;
     background: #f5f7f8;
   }
 
@@ -715,6 +815,8 @@
     display: flex;
     flex-direction: column;
     gap: 26px;
+    min-height: 0;
+    overflow: hidden;
     padding: 22px 18px;
     border-right: 1px solid #d9dee3;
     background: #eef2f4;
@@ -791,6 +893,9 @@
   .session-list,
   .detail-panel {
     min-width: 0;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
     padding: 24px;
   }
 
@@ -844,6 +949,20 @@
     margin-bottom: 0;
     font-size: 24px;
     line-height: 31px;
+  }
+
+  .detail-heading {
+    min-width: 0;
+  }
+
+  .detail-heading h2 {
+    display: -webkit-box;
+    overflow: hidden;
+    max-width: 100%;
+    line-clamp: 2;
+    overflow-wrap: anywhere;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
   }
 
   h3 {
@@ -1008,6 +1127,7 @@
 
   .detail-actions {
     display: flex;
+    flex-shrink: 0;
     gap: 8px;
   }
 
@@ -1104,6 +1224,67 @@
 
   .transcript-stats {
     margin-bottom: 14px;
+  }
+
+  .transcript-filters {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(140px, 180px);
+    gap: 10px;
+    margin-top: 14px;
+  }
+
+  .transcript-search,
+  .role-filter {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    padding: 0 10px;
+    border: 1px solid #dce4e8;
+    border-radius: 7px;
+    color: #6c7782;
+    background: #f8fafb;
+  }
+
+  .transcript-search input,
+  .role-filter select {
+    width: 100%;
+    min-width: 0;
+    height: 36px;
+    border: 0;
+    outline: 0;
+    color: #192229;
+    background: transparent;
+  }
+
+  .role-filter span {
+    color: #71808b;
+    font-size: 12px;
+    line-height: 17px;
+  }
+
+  .filter-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 10px;
+    color: #71808b;
+    font-size: 12px;
+    line-height: 17px;
+  }
+
+  .filter-summary button {
+    padding: 0;
+    border: 0;
+    color: #0d5c63;
+    background: transparent;
+    cursor: pointer;
+    font-weight: 650;
+  }
+
+  .filter-summary button:hover {
+    text-decoration: underline;
   }
 
   .transcript-list {
