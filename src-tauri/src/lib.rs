@@ -35,6 +35,25 @@ fn set_thread_archive_state(thread_id: String, archived: bool) -> Result<(), Str
 }
 
 #[tauri::command]
+fn move_thread_to_trash(thread_id: String) -> Result<(), String> {
+    codex::move_thread_to_trash(thread_id).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn move_threads_to_trash(thread_ids: Vec<String>) -> Result<(), String> {
+    codex::move_threads_to_trash(thread_ids).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn move_generated_workspace_session_to_trash(
+    thread_id: String,
+    save_workspace_copy: bool,
+) -> Result<(), String> {
+    codex::move_generated_workspace_session_to_trash(thread_id, save_workspace_copy)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 fn open_local_path(app: tauri::AppHandle, path: String) -> Result<(), String> {
     let directory = normalize_openable_directory(&path)?;
     let display_path = directory.display().to_string();
@@ -109,6 +128,9 @@ pub fn run() {
             get_codex_transcript,
             get_workspace_metadata,
             set_thread_archive_state,
+            move_thread_to_trash,
+            move_threads_to_trash,
+            move_generated_workspace_session_to_trash,
             open_local_path
         ])
         .run(tauri::generate_context!())

@@ -18,6 +18,7 @@ pub enum CodexError {
         to: PathBuf,
         source: std::io::Error,
     },
+    TrashOperation(String),
     TranscriptPathUnavailable,
     TranscriptRead {
         path: PathBuf,
@@ -64,6 +65,12 @@ impl fmt::Display for CodexError {
                     "Could not move transcript from {} to {}: {source}",
                     from.display(),
                     to.display()
+                )
+            }
+            Self::TrashOperation(message) => {
+                write!(
+                    formatter,
+                    "Could not complete Codex Trash operation: {message}"
                 )
             }
             Self::TranscriptPathUnavailable => {

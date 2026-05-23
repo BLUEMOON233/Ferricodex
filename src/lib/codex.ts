@@ -96,3 +96,21 @@ export function getWorkspaceMetadata(path: string) {
 export function setThreadArchiveState(threadId: string, archived: boolean) {
   return invoke<void>("set_thread_archive_state", { threadId, archived });
 }
+
+export function moveThreadToTrash(threadId: string) {
+  return invoke<void>("move_thread_to_trash", { threadId });
+}
+
+export function moveThreadsToTrash(threadIds: string[]) {
+  return invoke<void>("move_threads_to_trash", { threadIds });
+}
+
+export function moveGeneratedWorkspaceSessionToTrash(
+  threadId: string,
+  saveWorkspaceCopy: boolean,
+) {
+  return invoke<void>("move_generated_workspace_session_to_trash", {
+    threadId,
+    saveWorkspaceCopy,
+  });
+}

@@ -20,6 +20,7 @@ src-tauri/
                           and bounded local folder opening
     codex/
       archive.rs          Codex-compatible session archive/unarchive transitions
+      deletion.rs         Confirmed session and workspace Trash transitions
       error.rs            Shared Codex data access errors
       home.rs             CODEX_HOME and platform path detection
       threads.rs          SQLite thread index reader
@@ -61,9 +62,26 @@ Workspace management should remain separate from history management:
   JSONL files between `sessions/` and `archived_sessions/`, update
   `threads.archived`, `threads.archived_at`, and `threads.rollout_path`, and
   require user confirmation.
-- Cleanup features should be advisory and user-confirmed. The app must not
-  automatically delete files from `~/.codex`, `~/Documents/Codex`, or project
-  directories.
+- Cleanup features should be explicit and user-confirmed. Trash is treated as
+  deletion from the app's perspective; the app does not provide restore flows.
+- Session Move to Trash should move the selected rollout JSONL to the system
+  Trash, remove the matching `threads` row from `state_5.sqlite`, clear known
+  thread references such as `thread_spawn_edges` and
+  `agent_job_items.assigned_thread_id`, rely on Codex foreign-key cascades for
+  thread-owned metadata, verify no known references remain, and remove the
+  matching `session_index.jsonl` entry with a temporary-file replacement and a
+  pre-replace concurrent-change check.
+- Generated task workspaces are recognized defensively by the shape
+  `~/Documents/Codex/YYYY-MM-DD/<folder>` (or an explicit generated-workspace
+  root override). A generated workspace is considered bound to one session: the
+  delete flow can move the session and generated folder to Trash, or first save
+  a copy under `~/Documents/Codex Saved Workspaces/YYYY-MM-DD/<folder>` and then
+  move the original folder to Trash. If the folder is missing, deletion
+  downgrades to session-only cleanup; if multiple sessions reference the same
+  generated folder, folder deletion is stopped for safety.
+- User-project workspace removal deletes all Codex sessions attached to that
+  normalized `cwd`, including transcripts, thread rows, known references, and
+  `session_index.jsonl` entries. It must not modify the project/workspace files.
 
 ## Write Boundaries
 
@@ -71,6 +89,14 @@ Codex-owned files are the source of truth and should be read-only by default.
 Any write operation must be narrow, user-confirmed, and backed by a recoverable
 path. Session archive/unarchive is the first supported write path and must stay
 limited to Codex-compatible rollout moves plus the matching `threads` row update.
+Session Move to Trash is limited to rollout JSONL files under `sessions/` or
+`archived_sessions/`, the matching thread row cleanup, foreign-key cascaded
+thread metadata, `thread_spawn_edges`, `agent_job_items.assigned_thread_id`,
+and the matching `session_index.jsonl` entry. Generated task-folder deletion is
+limited to `~/Documents/Codex/YYYY-MM-DD/<folder>`-shaped directories after the
+one-session safety check, with an optional saved copy. User project workspace
+removal must only alter Codex history metadata and transcript files, never the
+workspace contents.
 
 App-owned files are limited to settings, local tags, disposable indexes, and small bounded logs.
 

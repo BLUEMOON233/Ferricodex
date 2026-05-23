@@ -47,12 +47,27 @@ export function isSameOrChildPath(path: string, root: string) {
   return normalizedPath === normalizedRoot || normalizedPath.startsWith(`${normalizedRoot}/`);
 }
 
+export function isGeneratedCodexTaskWorkspace(path: string) {
+  const normalized = normalizeWorkspacePath(path);
+  const marker = "/documents/codex/";
+  const markerIndex = normalized.toLowerCase().indexOf(marker);
+
+  if (markerIndex === -1) {
+    return false;
+  }
+
+  const relativePath = normalized.slice(markerIndex + marker.length);
+  const parts = relativePath.split("/").filter(Boolean);
+
+  return parts.length === 2 && /^\d{4}-\d{2}-\d{2}$/.test(parts[0]) && parts[1].trim() !== "";
+}
+
 export function classifyWorkspace(path: string, codexHomePath?: string): WorkspaceSource {
   if (codexHomePath && isSameOrChildPath(path, `${codexHomePath}/worktrees`)) {
     return "codexWorktree";
   }
 
-  if (normalizeWorkspacePath(path).includes("/Documents/Codex/")) {
+  if (isGeneratedCodexTaskWorkspace(path)) {
     return "codexTaskFolder";
   }
 
@@ -73,7 +88,7 @@ export function workspaceSourceLabel(source: WorkspaceSource) {
 
 export function workspaceSourceDescription(source: WorkspaceSource) {
   if (source === "codexTaskFolder") {
-    return "Created by the desktop app as a task working directory.";
+    return "Generated under Documents/Codex/YYYY-MM-DD as a task working directory.";
   }
 
   if (source === "codexWorktree") {

@@ -81,7 +81,12 @@ The project can currently read local Codex thread metadata from `state_5.sqlite`
 render searchable active/archive session and workspace views, reveal local
 folders, parse/filter a bounded transcript preview only when a session is
 selected, and move sessions between Codex-compatible active/archive locations
-after user confirmation.
+or delete selected sessions and workspace history with known Codex database and
+`session_index.jsonl` cleanup after user confirmation. Codex-generated task
+folders under `~/Documents/Codex/YYYY-MM-DD/<folder>` can be moved to the
+system Trash with the bound session, optionally after saving a copy under
+`~/Documents/Codex Saved Workspaces/`. User project workspaces can be removed
+from Codex history without touching project files.
 
 Completed:
 
@@ -92,7 +97,7 @@ Completed:
 - [x] Show active and archived sessions with search, preview, and selected-session details.
 - [x] Add a `Sessions` / `Workspaces` split view.
 - [x] Group sessions by normalized `cwd` so one workspace can show many related conversations.
-- [x] Classify workspace sources, including user projects, `~/Documents/Codex` task folders, and `$CODEX_HOME/worktrees`.
+- [x] Classify workspace sources, including user projects, generated `~/Documents/Codex/YYYY-MM-DD/<folder>` task folders, and `$CODEX_HOME/worktrees`.
 - [x] Show workspace metadata lazily: existence, size, last modified time, and related session count.
 - [x] Split frontend API, formatting, opener, and workspace helpers out of the main Svelte page.
 - [x] Split Codex backend access into focused `home`, `threads`, `transcript`, and `workspaces` modules.
@@ -100,12 +105,14 @@ Completed:
 - [x] Parse transcript JSONL on demand for the selected session with bounded read-only loading.
 - [x] Filter the loaded transcript preview by text and message role without reading extra files.
 - [x] Archive and unarchive selected sessions by moving rollout JSONL files between `sessions` and `archived_sessions` and updating Codex `state_5.sqlite`.
+- [x] Move selected sessions to the system Trash by trashing the rollout JSONL, removing the matching Codex thread row, clearing known thread references, removing the matching `session_index.jsonl` entry, and requiring confirmation.
+- [x] For generated `~/Documents/Codex/YYYY-MM-DD/<folder>` workspaces, delete the bound session together with the generated folder, or save the folder first and then move the original to Trash.
+- [x] Remove user-project workspaces from Codex history by deleting all attached sessions while leaving project files untouched.
 - [x] Keep generated build outputs and dependency folders out of Git.
 - [x] Push the initial repository to GitHub.
 
 Next:
 
-- [ ] Add system Trash support for selected sessions and workspace/task folders with confirmation.
 - [ ] Add UI-level tests or an automation-friendly test route for reliable desktop interaction checks.
 - [ ] Expand selected-session filtering into an app-owned global transcript search index.
 - [ ] Investigate official Codex Desktop deep links before adding any resume launcher.
