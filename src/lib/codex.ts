@@ -42,6 +42,42 @@ export type CodexTranscript = {
   messages: CodexTranscriptMessage[];
 };
 
+export type CodexSearchScope = "active" | "archived" | "all";
+
+export type CodexSearchQuery = {
+  query: string;
+  scope: CodexSearchScope;
+  maxResults?: number;
+};
+
+export type CodexSearchMatch = {
+  lineNumber: number;
+  timestamp: string | null;
+  role: string;
+  snippet: string;
+};
+
+export type CodexSearchResult = {
+  threadId: string;
+  title: string;
+  cwd: string;
+  rolloutPath: string;
+  archived: boolean;
+  updatedAtMs: number;
+  transcriptTruncated: boolean;
+  matches: CodexSearchMatch[];
+};
+
+export type CodexSearchResponse = {
+  query: string;
+  scope: CodexSearchScope;
+  scannedThreadCount: number;
+  matchedThreadCount: number;
+  resultCount: number;
+  truncated: boolean;
+  results: CodexSearchResult[];
+};
+
 export type CodexThread = {
   id: string;
   title: string;
@@ -87,6 +123,10 @@ export function listCodexThreads() {
 
 export function getCodexTranscript(path: string) {
   return invoke<CodexTranscript>("get_codex_transcript", { path });
+}
+
+export function searchCodexHistory(query: CodexSearchQuery) {
+  return invoke<CodexSearchResponse>("search_codex_history", { query });
 }
 
 export function getWorkspaceMetadata(path: string) {

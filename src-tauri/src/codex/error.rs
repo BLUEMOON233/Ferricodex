@@ -19,6 +19,7 @@ pub enum CodexError {
         source: std::io::Error,
     },
     TrashOperation(String),
+    SearchOperation(String),
     TranscriptPathUnavailable,
     TranscriptRead {
         path: PathBuf,
@@ -72,6 +73,9 @@ impl fmt::Display for CodexError {
                     formatter,
                     "Could not complete Codex Trash operation: {message}"
                 )
+            }
+            Self::SearchOperation(message) => {
+                write!(formatter, "Could not search Codex history: {message}")
             }
             Self::TranscriptPathUnavailable => {
                 write!(formatter, "Transcript path is unavailable")

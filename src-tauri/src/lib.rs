@@ -1,6 +1,9 @@
 mod codex;
 
-use codex::{CodexHomeStatus, CodexThread, CodexTranscript, WorkspaceMetadata};
+use codex::{
+    CodexHomeStatus, CodexSearchQuery, CodexSearchResponse, CodexThread, CodexTranscript,
+    WorkspaceMetadata,
+};
 use std::path::PathBuf;
 use tauri_plugin_opener::OpenerExt;
 
@@ -22,6 +25,11 @@ fn list_codex_threads() -> Result<Vec<CodexThread>, String> {
 #[tauri::command]
 fn get_codex_transcript(path: String) -> Result<CodexTranscript, String> {
     codex::read_transcript(path).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn search_codex_history(query: CodexSearchQuery) -> Result<CodexSearchResponse, String> {
+    codex::search_history(query).map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -56,11 +64,27 @@ fn move_generated_workspace_session_to_trash(
 #[tauri::command]
 fn open_local_path(app: tauri::AppHandle, path: String) -> Result<(), String> {
     let directory = normalize_openable_directory(&path)?;
-    let display_path = directory.display().to_string();
+    let opener_path = strip_unc_prefix(directory);
+    let display_path = opener_path.display().to_string();
 
     app.opener()
-        .open_path(directory.to_string_lossy().into_owned(), None::<&str>)
+        .open_path(opener_path.to_string_lossy().into_owned(), None::<&str>)
         .map_err(|error| format!("Unable to open {display_path}: {error}"))
+}
+
+fn strip_unc_prefix(path: PathBuf) -> PathBuf {
+    #[cfg(windows)]
+    {
+        if let Some(value) = path.to_str() {
+            if let Some(rest) = value.strip_prefix(r"\\?\UNC\") {
+                return PathBuf::from(format!(r"\\{rest}"));
+            }
+            if let Some(rest) = value.strip_prefix(r"\\?\") {
+                return PathBuf::from(rest);
+            }
+        }
+    }
+    path
 }
 
 fn normalize_openable_directory(path: &str) -> Result<PathBuf, String> {
@@ -126,6 +150,7 @@ pub fn run() {
             get_codex_home_status,
             list_codex_threads,
             get_codex_transcript,
+            search_codex_history,
             get_workspace_metadata,
             set_thread_archive_state,
             move_thread_to_trash,

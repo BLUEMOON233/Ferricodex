@@ -2,12 +2,13 @@ use serde::Serialize;
 use serde_json::Value;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
+use std::path::Path;
 
 use super::error::CodexError;
 use super::home::expand_tilde;
 
-const TRANSCRIPT_LINE_LIMIT: u64 = 2_000;
-const TRANSCRIPT_MESSAGE_CHAR_LIMIT: usize = 12_000;
+pub(crate) const TRANSCRIPT_LINE_LIMIT: u64 = 2_000;
+pub(crate) const TRANSCRIPT_MESSAGE_CHAR_LIMIT: usize = 12_000;
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -20,13 +21,22 @@ pub struct CodexTranscript {
     pub messages: Vec<CodexTranscriptMessage>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CodexTranscriptMessage {
     pub line_number: u64,
     pub timestamp: Option<String>,
     pub role: String,
     pub text: String,
+}
+
+#[derive(Debug)]
+pub(crate) struct TranscriptMessagesRead {
+    pub exists: bool,
+    pub line_count: u64,
+    pub invalid_line_count: u64,
+    pub truncated: bool,
+    pub messages: Vec<CodexTranscriptMessage>,
 }
 
 pub fn read_transcript(path: String) -> Result<CodexTranscript, CodexError> {
@@ -38,9 +48,23 @@ pub fn read_transcript(path: String) -> Result<CodexTranscript, CodexError> {
     let path_buf = expand_tilde(trimmed_path);
     let display_path = path_buf.to_string_lossy().into_owned();
 
-    if !path_buf.exists() {
-        return Ok(CodexTranscript {
-            path: display_path,
+    let transcript = read_transcript_messages(&path_buf)?;
+
+    Ok(CodexTranscript {
+        path: display_path,
+        exists: transcript.exists,
+        line_count: transcript.line_count,
+        invalid_line_count: transcript.invalid_line_count,
+        truncated: transcript.truncated,
+        messages: transcript.messages,
+    })
+}
+
+pub(crate) fn read_transcript_messages(
+    path: &Path,
+) -> Result<TranscriptMessagesRead, CodexError> {
+    if !path.exists() {
+        return Ok(TranscriptMessagesRead {
             exists: false,
             line_count: 0,
             invalid_line_count: 0,
@@ -49,8 +73,8 @@ pub fn read_transcript(path: String) -> Result<CodexTranscript, CodexError> {
         });
     }
 
-    let file = File::open(&path_buf).map_err(|source| CodexError::TranscriptRead {
-        path: path_buf.clone(),
+    let file = File::open(path).map_err(|source| CodexError::TranscriptRead {
+        path: path.to_path_buf(),
         source,
     })?;
     let reader = BufReader::new(file);
@@ -66,7 +90,7 @@ pub fn read_transcript(path: String) -> Result<CodexTranscript, CodexError> {
         }
 
         let line = line_result.map_err(|source| CodexError::TranscriptRead {
-            path: path_buf.clone(),
+            path: path.to_path_buf(),
             source,
         })?;
         line_count += 1;
@@ -88,8 +112,7 @@ pub fn read_transcript(path: String) -> Result<CodexTranscript, CodexError> {
         }
     }
 
-    Ok(CodexTranscript {
-        path: display_path,
+    Ok(TranscriptMessagesRead {
         exists: true,
         line_count,
         invalid_line_count,

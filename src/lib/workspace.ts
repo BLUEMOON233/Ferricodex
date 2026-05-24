@@ -86,16 +86,28 @@ export function workspaceSourceLabel(source: WorkspaceSource) {
   return "User Project";
 }
 
-export function workspaceSourceDescription(source: WorkspaceSource) {
+export function workspaceSourceLabelKey(source: WorkspaceSource) {
   if (source === "codexTaskFolder") {
-    return "Generated under Documents/Codex/YYYY-MM-DD as a task working directory.";
+    return "workspace.source.codexTaskFolder";
   }
 
   if (source === "codexWorktree") {
-    return "Managed under the Codex home worktrees directory.";
+    return "workspace.source.codexWorktree";
   }
 
-  return "A project or folder selected as a Codex working directory.";
+  return "workspace.source.userProject";
+}
+
+export function workspaceSourceDescriptionKey(source: WorkspaceSource) {
+  if (source === "codexTaskFolder") {
+    return "workspace.sourceDescription.codexTaskFolder";
+  }
+
+  if (source === "codexWorktree") {
+    return "workspace.sourceDescription.codexWorktree";
+  }
+
+  return "workspace.sourceDescription.userProject";
 }
 
 export function groupSessionsByWorkspace(sessions: Session[], codexHomePath?: string): Workspace[] {

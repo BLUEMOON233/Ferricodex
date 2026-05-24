@@ -75,16 +75,20 @@ pub(super) fn resolve_codex_home() -> Result<CodexHome, CodexError> {
 
 pub(super) fn expand_tilde(value: &str) -> PathBuf {
     if value == "~" {
-        return env::var_os("HOME")
-            .map(PathBuf::from)
-            .unwrap_or_else(|| PathBuf::from(value));
+        return user_home_dir().unwrap_or_else(|| PathBuf::from(value));
     }
 
     if let Some(rest) = value.strip_prefix("~/") {
-        if let Some(home) = env::var_os("HOME") {
-            return PathBuf::from(home).join(rest);
+        if let Some(home) = user_home_dir() {
+            return home.join(rest);
         }
     }
 
     PathBuf::from(value)
+}
+
+fn user_home_dir() -> Option<PathBuf> {
+    env::var_os("HOME")
+        .map(PathBuf::from)
+        .or_else(|| env::var_os("USERPROFILE").map(PathBuf::from))
 }
