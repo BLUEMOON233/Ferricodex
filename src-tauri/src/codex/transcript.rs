@@ -1,13 +1,18 @@
 use serde::Serialize;
 use serde_json::Value;
+use std::fs;
 use std::fs::File;
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, ErrorKind, Read};
 use std::path::Path;
 
 use super::error::CodexError;
 use super::home::expand_tilde;
+use super::paths::paths_match;
+use super::threads::list_threads;
 
 pub(crate) const TRANSCRIPT_LINE_LIMIT: u64 = 2_000;
+pub(crate) const TRANSCRIPT_FILE_BYTE_LIMIT: u64 = 12 * 1024 * 1024;
+pub(crate) const TRANSCRIPT_LINE_BYTE_LIMIT: usize = 512 * 1024;
 pub(crate) const TRANSCRIPT_MESSAGE_CHAR_LIMIT: usize = 12_000;
 
 #[derive(Debug, Serialize)]
@@ -46,6 +51,7 @@ pub fn read_transcript(path: String) -> Result<CodexTranscript, CodexError> {
     }
 
     let path_buf = expand_tilde(trimmed_path);
+    ensure_known_transcript_path(&path_buf)?;
     let display_path = path_buf.to_string_lossy().into_owned();
 
     let transcript = read_transcript_messages(&path_buf)?;
@@ -73,27 +79,54 @@ pub(crate) fn read_transcript_messages(
         });
     }
 
+    let metadata = fs::metadata(path).map_err(|source| CodexError::TranscriptRead {
+        path: path.to_path_buf(),
+        source,
+    })?;
+
+    if !metadata.is_file() {
+        return Err(CodexError::PathAccessDenied(format!(
+            "Transcript path is not a file: {}",
+            path.display()
+        )));
+    }
+
+    let file_too_large = metadata.len() > TRANSCRIPT_FILE_BYTE_LIMIT;
     let file = File::open(path).map_err(|source| CodexError::TranscriptRead {
         path: path.to_path_buf(),
         source,
     })?;
-    let reader = BufReader::new(file);
+    let reader = BufReader::new(file.take(TRANSCRIPT_FILE_BYTE_LIMIT + 1));
     let mut line_count = 0;
     let mut invalid_line_count = 0;
-    let mut truncated = false;
+    let mut truncated = file_too_large;
     let mut messages = Vec::new();
 
-    for line_result in reader.lines() {
+    for line_result in reader.split(b'\n') {
         if line_count >= TRANSCRIPT_LINE_LIMIT {
             truncated = true;
             break;
         }
 
-        let line = line_result.map_err(|source| CodexError::TranscriptRead {
+        let mut line = line_result.map_err(|source| CodexError::TranscriptRead {
             path: path.to_path_buf(),
             source,
         })?;
         line_count += 1;
+
+        if line.len() > TRANSCRIPT_LINE_BYTE_LIMIT {
+            truncated = true;
+            continue;
+        }
+
+        if matches!(line.last(), Some(b'\r')) {
+            line.pop();
+        }
+
+        let line = String::from_utf8(line).map_err(|error| CodexError::TranscriptRead {
+            path: path.to_path_buf(),
+            source: std::io::Error::new(ErrorKind::InvalidData, error),
+        })?;
 
         if line.trim().is_empty() {
             continue;
@@ -119,6 +152,22 @@ pub(crate) fn read_transcript_messages(
         truncated,
         messages,
     })
+}
+
+fn ensure_known_transcript_path(path: &Path) -> Result<(), CodexError> {
+    let is_known = list_threads()?.into_iter().any(|thread| {
+        let rollout_path = thread.rollout_path.trim();
+        !rollout_path.is_empty() && paths_match(path, &expand_tilde(rollout_path))
+    });
+
+    if is_known {
+        return Ok(());
+    }
+
+    Err(CodexError::PathAccessDenied(format!(
+        "Transcript path is not referenced by current Codex history: {}",
+        path.display()
+    )))
 }
 
 fn extract_message(line_number: u64, value: &Value) -> Option<CodexTranscriptMessage> {
@@ -311,8 +360,7 @@ mod tests {
         .expect("assistant message should be written");
         writeln!(file, "not-json").expect("invalid line should be written");
 
-        let transcript = read_transcript(path.to_string_lossy().into_owned())
-            .expect("transcript should be parsed");
+        let transcript = read_transcript_messages(&path).expect("transcript should be parsed");
 
         assert!(transcript.exists);
         assert_eq!(transcript.line_count, 3);

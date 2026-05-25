@@ -76,7 +76,7 @@ export const en: Record<string, string> = {
 
   "bulk.selected_one": "{count} session selected",
   "bulk.selected_other": "{count} sessions selected",
-  "bulk.selectVisible": "Select visible",
+  "bulk.selectVisible": "Select all",
   "bulk.clearSelection": "Clear",
   "bulk.moveToTrash": "Move to Trash",
 
@@ -189,6 +189,11 @@ export const en: Record<string, string> = {
     "This is a Codex-generated task folder. Choose how to handle the workspace folder along with its session.",
   "dialog.trashWorkspace.saveCopy": "Save a copy then delete",
   "dialog.trashWorkspace.deleteOnly": "Delete without saving",
+  "dialog.trashWorkspaceHistory.title": "Remove workspace from history?",
+  "dialog.trashWorkspaceHistory.body":
+    "This will remove {count} Codex sessions in this workspace and clean their Codex history entries. The workspace folder itself will be kept and will not be moved or deleted.",
+  "dialog.trashWorkspaceHistory.confirm": "Remove session history",
+  "dialog.trashWorkspaceHistory.pathKept": "Folder kept: {path}",
   "dialog.bulkTrash.title": "Move {count} sessions to Trash?",
   "dialog.bulkTrash.body":
     "All selected sessions will be moved to your system Trash. This cannot be undone from inside the app.",

@@ -73,7 +73,7 @@ export const zh: Record<string, string> = {
 
   "bulk.selected_one": "已选 {count} 个会话",
   "bulk.selected_other": "已选 {count} 个会话",
-  "bulk.selectVisible": "选中当前可见",
+  "bulk.selectVisible": "全选",
   "bulk.clearSelection": "清空",
   "bulk.moveToTrash": "移到废纸篓",
 
@@ -181,6 +181,11 @@ export const zh: Record<string, string> = {
     "这是 Codex 生成的任务目录。请选择如何处理工作区目录与对应会话。",
   "dialog.trashWorkspace.saveCopy": "保留副本后删除",
   "dialog.trashWorkspace.deleteOnly": "直接删除",
+  "dialog.trashWorkspaceHistory.title": "从历史中移除此工作区？",
+  "dialog.trashWorkspaceHistory.body":
+    "将移除此工作区下的 {count} 个 Codex 会话，并清理对应的 Codex 历史记录。工作区目录本身会保留，不会被移动或删除。",
+  "dialog.trashWorkspaceHistory.confirm": "移除会话历史",
+  "dialog.trashWorkspaceHistory.pathKept": "保留目录：{path}",
   "dialog.bulkTrash.title": "将 {count} 个会话移到废纸篓？",
   "dialog.bulkTrash.body": "所选会话将被移到系统废纸篓，应用内无法撤销。",
   "dialog.bulkTrash.confirm": "移到废纸篓",

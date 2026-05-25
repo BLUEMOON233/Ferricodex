@@ -28,8 +28,12 @@
 
 {#if visible}
   <div class="bulk-toolbar" role="toolbar" aria-label={t("bulk.selected", { count: selectedCount })}>
-    <div class="bulk-summary">
+    <div class="bulk-top-row">
       <span>{t("bulk.selected", { count: selectedCount })}</span>
+      <Button variant="ghost" size="sm" onclick={onClear}>
+        <X size={12} />
+        {t("bulk.clearSelection")}
+      </Button>
     </div>
 
     <div class="bulk-actions">
@@ -41,10 +45,6 @@
       >
         {t("bulk.selectVisible")}
       </Button>
-      <Button variant="ghost" size="sm" onclick={onClear}>
-        <X size={12} />
-        {t("bulk.clearSelection")}
-      </Button>
       <Button variant="danger" size="sm" loading={busy} onclick={onTrash}>
         <Trash2 size={12} />
         {t("bulk.moveToTrash")}
@@ -55,21 +55,20 @@
 
 <style>
   .bulk-toolbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
+    display: grid;
+    gap: 6px;
     margin-bottom: 8px;
-    padding: 6px 10px 6px 12px;
+    padding: 8px 10px;
     border-radius: var(--radius-md);
     background: var(--accent-soft);
     color: var(--fg);
   }
 
-  .bulk-summary {
+  .bulk-top-row {
     display: flex;
-    align-items: baseline;
-    gap: 5px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
     color: var(--fg);
     font-size: 12px;
     font-weight: 500;
@@ -77,8 +76,9 @@
   }
 
   .bulk-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 6px;
   }
 </style>

@@ -146,7 +146,7 @@ pub fn move_thread_to_trash(thread_id: String) -> Result<(), CodexError> {
         .ok_or_else(|| CodexError::ThreadNotFound(thread_id.clone()))?;
 
     let transcript = expand_rollout_path(&home.path, &current_state.rollout_path);
-    ensure_trashable_transcript(&transcript, &home.path)?;
+    let transcript_exists = ensure_trashable_transcript(&transcript, &home.path)?;
     let session_index_cleanup = plan_session_index_cleanup(
         &home.path,
         &thread_id,
@@ -167,18 +167,18 @@ pub fn move_thread_to_trash(thread_id: String) -> Result<(), CodexError> {
     ensure_no_known_database_references(&transaction, &thread_id)?;
     apply_session_index_cleanup(session_index_cleanup.as_ref())?;
 
-    if let Err(error) = trash::delete(&transcript) {
-        if let Err(restore_error) = restore_session_index_cleanup(session_index_cleanup.as_ref()) {
-            return Err(CodexError::TrashOperation(format!(
-                "Could not move transcript {} to the system Trash: {error}; also failed to restore session_index.jsonl: {restore_error}",
-                transcript.display()
-            )));
-        }
+    if transcript_exists {
+        if let Err(error) = trash_existing_transcript_if_present(&transcript) {
+            if let Err(restore_error) =
+                restore_session_index_cleanup(session_index_cleanup.as_ref())
+            {
+                return Err(CodexError::TrashOperation(format!(
+                    "{error}; also failed to restore session_index.jsonl: {restore_error}"
+                )));
+            }
 
-        return Err(CodexError::TrashOperation(format!(
-            "Could not move transcript {} to the system Trash: {error}",
-            transcript.display()
-        )));
+            return Err(CodexError::TrashOperation(error));
+        }
     }
 
     if let Err(error) = transaction.commit() {
@@ -766,13 +766,20 @@ fn expand_rollout_path(codex_home: &Path, rollout_path: &str) -> PathBuf {
     }
 }
 
-fn ensure_trashable_transcript(path: &Path, codex_home: &Path) -> Result<(), CodexError> {
-    let metadata = fs::metadata(path).map_err(|source| {
-        CodexError::TrashOperation(format!(
-            "Could not read session transcript at {}: {source}",
-            path.display()
-        ))
-    })?;
+fn ensure_trashable_transcript(path: &Path, codex_home: &Path) -> Result<bool, CodexError> {
+    let metadata = match fs::metadata(path) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == ErrorKind::NotFound => {
+            ensure_transcript_path_is_in_codex_sessions(path, codex_home)?;
+            return Ok(false);
+        }
+        Err(source) => {
+            return Err(CodexError::TrashOperation(format!(
+                "Could not read session transcript at {}: {source}",
+                path.display()
+            )));
+        }
+    };
 
     if !metadata.is_file() {
         return Err(CodexError::TrashOperation(format!(
@@ -804,7 +811,83 @@ fn ensure_trashable_transcript(path: &Path, codex_home: &Path) -> Result<(), Cod
         )));
     }
 
+    Ok(true)
+}
+
+fn ensure_transcript_path_is_in_codex_sessions(
+    path: &Path,
+    codex_home: &Path,
+) -> Result<(), CodexError> {
+    let path = normalize_transcript_path(path)?;
+    let sessions_root = normalize_transcript_path(&codex_home.join("sessions"))?;
+    let archived_root = normalize_transcript_path(&codex_home.join("archived_sessions"))?;
+
+    if path.starts_with(&sessions_root) || path.starts_with(&archived_root) {
+        return Ok(());
+    }
+
+    Err(CodexError::TrashOperation(format!(
+        "Refusing to clean missing transcript outside Codex sessions directories: {}",
+        path.display()
+    )))
+}
+
+fn normalize_transcript_path(path: &Path) -> Result<PathBuf, CodexError> {
+    let mut normalized = PathBuf::new();
+
+    for component in path.components() {
+        match component {
+            Component::Prefix(_) | Component::RootDir | Component::Normal(_) => {
+                normalized.push(component.as_os_str());
+            }
+            Component::CurDir => {}
+            Component::ParentDir => {
+                return Err(CodexError::TrashOperation(format!(
+                    "Transcript path must not contain parent-directory segments: {}",
+                    path.display()
+                )));
+            }
+        }
+    }
+
+    Ok(normalized)
+}
+
+fn trash_existing_transcript_if_present(path: &Path) -> Result<(), String> {
+    match fs::metadata(path) {
+        Ok(metadata) if metadata.is_file() => {}
+        Ok(_) => {
+            return Err(format!(
+                "Expected session transcript to be a file: {}",
+                path.display()
+            ));
+        }
+        Err(error) if error.kind() == ErrorKind::NotFound => return Ok(()),
+        Err(error) => {
+            return Err(format!(
+                "Could not re-read session transcript at {}: {error}",
+                path.display()
+            ));
+        }
+    }
+
+    if let Err(error) = trash::delete(path) {
+        if transcript_is_missing(path) {
+            // Another process removed the transcript after validation; keep the DB/index cleanup.
+            return Ok(());
+        }
+
+        return Err(format!(
+            "Could not move transcript {} to the system Trash: {error}",
+            path.display()
+        ));
+    }
+
     Ok(())
+}
+
+fn transcript_is_missing(path: &Path) -> bool {
+    matches!(fs::metadata(path), Err(error) if error.kind() == ErrorKind::NotFound)
 }
 
 fn canonical_existing_root(root: &Path) -> Result<Option<PathBuf>, CodexError> {
@@ -1019,7 +1102,26 @@ fn now_ms() -> Result<u128, CodexError> {
 
 #[cfg(test)]
 mod tests {
-    use super::{clean_session_index_contents, SessionIndexCriteria};
+    use super::{clean_session_index_contents, ensure_trashable_transcript, SessionIndexCriteria};
+    use std::fs;
+    use std::path::PathBuf;
+    use std::process;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn test_codex_home(name: &str) -> PathBuf {
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock should be after unix epoch")
+            .as_nanos();
+        let path = std::env::temp_dir().join(format!(
+            "codex-history-manager-deletion-{name}-{}-{timestamp}",
+            process::id()
+        ));
+
+        let _ = fs::remove_dir_all(&path);
+        fs::create_dir_all(&path).expect("test Codex home should be created");
+        path
+    }
 
     fn criteria() -> SessionIndexCriteria {
         SessionIndexCriteria {
@@ -1061,5 +1163,46 @@ mod tests {
 
         assert_eq!(removed_count, 1);
         assert_eq!(cleaned, "{\"id\":\"keep\"}\n");
+    }
+
+    #[test]
+    fn ensure_trashable_transcript_allows_missing_file_under_sessions() {
+        let home = test_codex_home("missing-session-file");
+        let transcript = home.join("sessions/2026/05/06/missing.jsonl");
+
+        let exists = ensure_trashable_transcript(&transcript, &home)
+            .expect("missing session transcript should still be cleanable");
+
+        assert!(!exists);
+        let _ = fs::remove_dir_all(home);
+    }
+
+    #[test]
+    fn ensure_trashable_transcript_allows_existing_file_under_sessions() {
+        let home = test_codex_home("existing-session-file");
+        let parent = home.join("sessions/2026/05/06");
+        fs::create_dir_all(&parent).expect("sessions parent should be created");
+        let transcript = parent.join("rollout.jsonl");
+        fs::write(&transcript, "{}\n").expect("transcript should be written");
+
+        let exists = ensure_trashable_transcript(&transcript, &home)
+            .expect("existing session transcript should be trashable");
+
+        assert!(exists);
+        let _ = fs::remove_dir_all(home);
+    }
+
+    #[test]
+    fn ensure_trashable_transcript_rejects_missing_file_outside_sessions() {
+        let home = test_codex_home("missing-outside-sessions");
+        let transcript = home.join("other/missing.jsonl");
+
+        let error = ensure_trashable_transcript(&transcript, &home)
+            .expect_err("missing transcript outside Codex session roots should be rejected");
+
+        assert!(error
+            .to_string()
+            .contains("outside Codex sessions directories"));
+        let _ = fs::remove_dir_all(home);
     }
 }

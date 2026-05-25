@@ -3,7 +3,10 @@ use std::fs;
 use std::path::Path;
 use std::time::UNIX_EPOCH;
 
+use super::error::CodexError;
 use super::home::expand_tilde;
+use super::paths::paths_match;
+use super::threads::list_threads;
 
 const WORKSPACE_SCAN_ENTRY_LIMIT: u64 = 20_000;
 
@@ -21,10 +24,15 @@ pub struct WorkspaceMetadata {
     pub scan_truncated: bool,
 }
 
-pub fn workspace_metadata(path: String) -> WorkspaceMetadata {
+pub fn workspace_metadata(path: String) -> Result<WorkspaceMetadata, CodexError> {
     let path_buf = expand_tilde(path.trim());
+    ensure_known_workspace_path(&path_buf)?;
 
-    match fs::metadata(&path_buf) {
+    Ok(read_workspace_metadata(&path_buf))
+}
+
+fn read_workspace_metadata(path_buf: &Path) -> WorkspaceMetadata {
+    match fs::metadata(path_buf) {
         Ok(metadata) => {
             let modified_at_ms = metadata.modified().ok().and_then(|modified| {
                 modified
@@ -73,6 +81,22 @@ pub fn workspace_metadata(path: String) -> WorkspaceMetadata {
             scan_truncated: false,
         },
     }
+}
+
+fn ensure_known_workspace_path(path: &Path) -> Result<(), CodexError> {
+    let is_known = list_threads()?.into_iter().any(|thread| {
+        let cwd = thread.cwd.trim();
+        !cwd.is_empty() && paths_match(path, &expand_tilde(cwd))
+    });
+
+    if is_known {
+        return Ok(());
+    }
+
+    Err(CodexError::PathAccessDenied(format!(
+        "Workspace path is not referenced by current Codex history: {}",
+        path.display()
+    )))
 }
 
 struct DirectoryScan {
@@ -159,7 +183,7 @@ mod tests {
             .write_all(b"world!")
             .expect("nested test file should be writable");
 
-        let metadata = workspace_metadata(root.to_string_lossy().into_owned());
+        let metadata = read_workspace_metadata(&root);
 
         assert!(metadata.exists);
         assert!(metadata.is_directory);
@@ -175,12 +199,7 @@ mod tests {
 
     #[test]
     fn workspace_metadata_reports_missing_paths() {
-        let metadata = workspace_metadata(
-            temp_workspace()
-                .join("missing")
-                .to_string_lossy()
-                .into_owned(),
-        );
+        let metadata = read_workspace_metadata(&temp_workspace().join("missing"));
 
         assert!(!metadata.exists);
         assert!(!metadata.is_directory);

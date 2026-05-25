@@ -33,8 +33,8 @@ fn search_codex_history(query: CodexSearchQuery) -> Result<CodexSearchResponse, 
 }
 
 #[tauri::command]
-fn get_workspace_metadata(path: String) -> WorkspaceMetadata {
-    codex::workspace_metadata(path)
+fn get_workspace_metadata(path: String) -> Result<WorkspaceMetadata, String> {
+    codex::workspace_metadata(path).map_err(|error| error.to_string())
 }
 
 #[tauri::command]

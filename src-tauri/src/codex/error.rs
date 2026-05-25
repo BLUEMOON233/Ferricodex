@@ -19,6 +19,7 @@ pub enum CodexError {
         source: std::io::Error,
     },
     TrashOperation(String),
+    PathAccessDenied(String),
     SearchOperation(String),
     TranscriptPathUnavailable,
     TranscriptRead {
@@ -73,6 +74,9 @@ impl fmt::Display for CodexError {
                     formatter,
                     "Could not complete Codex Trash operation: {message}"
                 )
+            }
+            Self::PathAccessDenied(message) => {
+                write!(formatter, "Codex path access was denied: {message}")
             }
             Self::SearchOperation(message) => {
                 write!(formatter, "Could not search Codex history: {message}")

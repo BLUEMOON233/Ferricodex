@@ -2,6 +2,7 @@ mod archive;
 mod deletion;
 mod error;
 mod home;
+mod paths;
 mod search;
 mod threads;
 mod transcript;

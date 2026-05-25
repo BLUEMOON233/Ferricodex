@@ -1163,16 +1163,25 @@
   open={trashWorkspaceDialogOpen}
   title={pendingTrashWorkspace?.source === "codexTaskFolder" && pendingTrashWorkspacePrimarySession
     ? t("dialog.trashWorkspace.title")
-    : t("dialog.trashSession.title")}
+    : t("dialog.trashWorkspaceHistory.title")}
   description={pendingTrashWorkspace?.source === "codexTaskFolder" && pendingTrashWorkspacePrimarySession
     ? t("dialog.trashWorkspace.body")
     : pendingTrashWorkspace
-      ? t("dialog.trashSession.body", { title: pendingTrashWorkspace.name })
+      ? t("dialog.trashWorkspaceHistory.body", {
+          count: pendingTrashWorkspace.sessions.length,
+        })
       : ""}
   onclose={clearPendingTrash}
 >
   {#if pendingTrashWorkspace}
-    <p class="dialog-target" title={pendingTrashWorkspace.path}>{pendingTrashWorkspace.path}</p>
+    {#if pendingTrashWorkspace.source === "codexTaskFolder"}
+      <p class="dialog-target" title={pendingTrashWorkspace.path}>{pendingTrashWorkspace.path}</p>
+    {:else}
+      <p class="dialog-target" title={pendingTrashWorkspace.name}>{pendingTrashWorkspace.name}</p>
+      <p class="dialog-note" title={pendingTrashWorkspace.path}>
+        {t("dialog.trashWorkspaceHistory.pathKept", { path: pendingTrashWorkspace.path })}
+      </p>
+    {/if}
   {/if}
   {#snippet actions()}
     <Button variant="secondary" onclick={clearPendingTrash}>{t("common.cancel")}</Button>
@@ -1197,7 +1206,7 @@
         loading={trashActionKey === workspaceKey(pendingTrashWorkspace)}
         onclick={confirmWorkspaceTrash}
       >
-        {t("dialog.trashSession.confirm")}
+        {t("dialog.trashWorkspaceHistory.confirm")}
       </Button>
     {/if}
   {/snippet}
