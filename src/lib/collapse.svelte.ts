@@ -1,5 +1,5 @@
-const SECTIONS_KEY = "codex-history-manager.collapsed-sections";
-const WORKSPACES_KEY = "codex-history-manager.collapsed-workspaces";
+const SECTIONS_KEY = "ferricodex.collapsed-sections";
+const WORKSPACES_KEY = "ferricodex.collapsed-workspaces";
 
 const DEFAULT_COLLAPSED_SECTIONS: readonly string[] = ["conversations"];
 

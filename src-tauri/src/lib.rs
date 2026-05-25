@@ -9,7 +9,7 @@ use tauri_plugin_opener::OpenerExt;
 
 #[tauri::command]
 fn get_app_summary() -> String {
-    "Codex History Manager keeps Codex session reading isolated from app metadata.".to_string()
+    "Ferricodex keeps Codex session reading isolated from app metadata.".to_string()
 }
 
 #[tauri::command]

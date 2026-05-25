@@ -39,7 +39,7 @@ struct GeneratedWorkspacePath {
 }
 
 const GENERATED_WORKSPACE_ROOT_ENV: &str = "CODEX_GENERATED_WORKSPACE_ROOT";
-const SAVED_WORKSPACES_ROOT_ENV: &str = "CODEX_HISTORY_MANAGER_SAVED_WORKSPACES_ROOT";
+const SAVED_WORKSPACES_ROOT_ENV: &str = "FERRICODEX_SAVED_WORKSPACES_ROOT";
 
 pub fn move_threads_to_trash(thread_ids: Vec<String>) -> Result<(), CodexError> {
     let mut normalized_ids = Vec::new();
@@ -366,7 +366,7 @@ fn saved_workspaces_root() -> Result<PathBuf, CodexError> {
     normalize_absolute_path(
         &user_home_dir()?
             .join("Documents")
-            .join("Codex Saved Workspaces"),
+            .join("Ferricodex Saved Workspaces"),
     )
 }
 
@@ -1069,7 +1069,7 @@ fn replace_file_contents(path: &Path, contents: &str) -> Result<(), CodexError> 
             ))
         })?;
     let temp_path = parent.join(format!(
-        ".{file_name}.codex-history-manager-{}-{}.tmp",
+        ".{file_name}.ferricodex-{}-{}.tmp",
         process::id(),
         now_ms()?
     ));
@@ -1114,7 +1114,7 @@ mod tests {
             .expect("system clock should be after unix epoch")
             .as_nanos();
         let path = std::env::temp_dir().join(format!(
-            "codex-history-manager-deletion-{name}-{}-{timestamp}",
+            "ferricodex-deletion-{name}-{}-{timestamp}",
             process::id()
         ));
 

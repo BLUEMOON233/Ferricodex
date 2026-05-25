@@ -1,4 +1,4 @@
-const STORAGE_KEY = "codex-history-manager.zoom";
+const STORAGE_KEY = "ferricodex.zoom";
 const MIN_ZOOM = 0.8;
 const MAX_ZOOM = 1.5;
 const ZOOM_STEP = 0.1;

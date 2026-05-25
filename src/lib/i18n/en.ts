@@ -15,7 +15,7 @@ export const en: Record<string, string> = {
   "filter.settings": "Settings",
 
   "sidebar.eyebrow": "Codex",
-  "sidebar.brand": "History Manager",
+  "sidebar.brand": "Ferricodex",
   "sidebar.expandAll": "Expand all",
   "sidebar.collapseAll": "Collapse all",
 
@@ -172,7 +172,7 @@ export const en: Record<string, string> = {
   "settings.codexHome.source.default": "Default location",
   "settings.about.title": "About",
   "settings.about.description":
-    "Codex History Manager reads local Codex sessions and only writes when you explicitly confirm archive, restore, or trash actions. Settings live in this view; nothing is sent off-device.",
+    "Ferricodex reads local Codex sessions and only writes when you explicitly confirm archive, restore, or trash actions. Settings live in this view; nothing is sent off-device.",
 
   "dialog.archive.title": "Archive session?",
   "dialog.archive.body": "Move \"{title}\" into the archive. You can restore it later.",

@@ -4,7 +4,7 @@ import { zh } from "./i18n/zh";
 export type Locale = "en" | "zh";
 export type LocalePreference = "auto" | Locale;
 
-const STORAGE_KEY = "codex-history-manager.locale";
+const STORAGE_KEY = "ferricodex.locale";
 
 const dictionaries: Record<Locale, Record<string, string>> = { en, zh };
 

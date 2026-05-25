@@ -1,7 +1,7 @@
 export type ThemePreference = "system" | "light" | "dark";
 export type ResolvedTheme = "light" | "dark";
 
-const STORAGE_KEY = "codex-history-manager.theme";
+const STORAGE_KEY = "ferricodex.theme";
 
 function safeRead(): ThemePreference {
   if (typeof window === "undefined") {

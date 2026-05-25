@@ -340,7 +340,7 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .expect("system time should be after unix epoch")
             .as_nanos();
-        env::temp_dir().join(format!("codex-history-manager-transcript-{suffix}.jsonl"))
+        env::temp_dir().join(format!("ferricodex-transcript-{suffix}.jsonl"))
     }
 
     #[test]

@@ -15,7 +15,7 @@ export const zh: Record<string, string> = {
   "filter.settings": "设置",
 
   "sidebar.eyebrow": "Codex",
-  "sidebar.brand": "历史记录管理器",
+  "sidebar.brand": "Ferricodex",
   "sidebar.expandAll": "全部展开",
   "sidebar.collapseAll": "全部折叠",
 
@@ -164,7 +164,7 @@ export const zh: Record<string, string> = {
   "settings.codexHome.source.default": "默认位置",
   "settings.about.title": "关于",
   "settings.about.description":
-    "Codex History Manager 仅在你确认归档、恢复或删除操作时写入数据，其余操作均为只读。设置保存在本视图，所有数据都不会上传。",
+    "Ferricodex 仅在你确认归档、恢复或删除操作时写入数据，其余操作均为只读。设置保存在本视图，所有数据都不会上传。",
 
   "dialog.archive.title": "归档此会话？",
   "dialog.archive.body": "将「{title}」移入归档，之后可以再恢复。",

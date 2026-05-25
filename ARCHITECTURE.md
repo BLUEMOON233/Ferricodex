@@ -1,6 +1,6 @@
 # Architecture
 
-Codex History Manager is split into a small Rust backend and a Svelte desktop UI.
+Ferricodex is split into a small Rust backend and a Svelte desktop UI.
 
 ## Modules
 
@@ -75,7 +75,7 @@ Workspace management should remain separate from history management:
   `~/Documents/Codex/YYYY-MM-DD/<folder>` (or an explicit generated-workspace
   root override). A generated workspace is considered bound to one session: the
   delete flow can move the session and generated folder to Trash, or first save
-  a copy under `~/Documents/Codex Saved Workspaces/YYYY-MM-DD/<folder>` and then
+  a copy under `~/Documents/Ferricodex Saved Workspaces/YYYY-MM-DD/<folder>` and then
   move the original folder to Trash. If the folder is missing, deletion
   downgrades to session-only cleanup; if multiple sessions reference the same
   generated folder, folder deletion is stopped for safety.
