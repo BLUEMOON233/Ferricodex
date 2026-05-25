@@ -1,6 +1,7 @@
 <script lang="ts">
   import { FolderOpen, Trash2 } from "@lucide/svelte";
   import { Badge, IconButton, Skeleton, StatePanel } from "$lib/components/ui";
+  import AgentDocumentCard from "./AgentDocumentCard.svelte";
   import FactsGrid from "./FactsGrid.svelte";
   import { formatCount, formatDate, formatSize } from "$lib/formatting";
   import {
@@ -127,6 +128,10 @@
   <h3>{sourceLabel}</h3>
   <p>{sourceDescription}</p>
 </section>
+
+{#key workspace.path}
+  <AgentDocumentCard workspacePath={workspace.path} />
+{/key}
 
 <section class="card">
   <header class="card-head">

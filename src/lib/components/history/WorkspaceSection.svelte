@@ -91,7 +91,7 @@
 <style>
   .workspace-section {
     display: grid;
-    gap: 4px;
+    gap: 6px;
   }
 
   .section-heading {
@@ -99,39 +99,53 @@
     align-items: center;
     justify-content: space-between;
     gap: 10px;
-    padding: 8px 8px 4px;
+    margin: 8px 4px 2px;
+    padding: 7px 8px;
+    border: 1px solid var(--separator);
+    border-radius: var(--radius-sm);
+    background: var(--bg-input-soft);
   }
 
   .section-toggle {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
+    gap: 6px;
+    min-width: 0;
     padding: 0;
-    color: var(--fg-tertiary);
+    color: var(--fg-secondary);
     background: transparent;
     cursor: pointer;
   }
 
   .section-toggle:hover {
-    color: var(--fg-secondary);
+    color: var(--fg);
   }
 
   .section-toggle :global(svg) {
-    color: var(--fg-tertiary);
+    flex: 0 0 auto;
+    color: var(--fg-secondary);
     transition: transform 80ms ease;
   }
 
   .section-title {
-    color: var(--fg-tertiary);
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.04em;
+    overflow: hidden;
+    color: var(--fg-secondary);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .section-meta {
-    color: var(--fg-tertiary);
+    flex: 0 0 auto;
+    padding: 1px 6px;
+    border-radius: 999px;
+    color: var(--fg-secondary);
+    background: var(--bg-surface);
     font-size: 11px;
+    font-weight: 600;
     font-variant-numeric: tabular-nums;
   }
 

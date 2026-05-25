@@ -1,3 +1,4 @@
+mod agents;
 mod archive;
 mod deletion;
 mod error;
@@ -9,6 +10,10 @@ mod threads;
 mod transcript;
 mod workspaces;
 
+pub use agents::{
+    agent_document, global_agent_document, save_agent_document, save_global_agent_document,
+    CodexAgentDocument, CodexAgentDocumentUpdate, CodexGlobalAgentDocumentUpdate,
+};
 pub use archive::set_thread_archive_state;
 pub use deletion::{
     move_generated_workspace_session_to_trash, move_thread_to_trash, move_threads_to_trash,

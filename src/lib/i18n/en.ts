@@ -141,6 +141,29 @@ export const en: Record<string, string> = {
   "workspaceDetail.metadataMissing": "Workspace folder is unavailable.",
   "workspaceDetail.metadataLoading": "Reading workspace…",
 
+  "agentDocument.title": "Agent document",
+  "agentDocument.description":
+    "Read and edit AGENTS.md at the current workspace root. Saving can affect future Agent/Codex behavior for this project.",
+  "agentDocument.exists": "Exists",
+  "agentDocument.missing": "Not created",
+  "agentDocument.reload": "Reload",
+  "agentDocument.path": "Path",
+  "agentDocument.size": "Size",
+  "agentDocument.modified": "Modified",
+  "agentDocument.placeholder": "Write Agent instructions for this project, such as build commands, test flow, architecture notes, and important constraints.",
+  "agentDocument.unsaved": "Unsaved changes",
+  "agentDocument.emptyHint": "Saving will create AGENTS.md.",
+  "agentDocument.create": "Create AGENTS.md",
+  "agentDocument.save": "Save AGENTS.md",
+  "agentDocument.globalTitle": "Global Agent document",
+  "agentDocument.globalDescription":
+    "Read and edit AGENT.md in the Codex home directory. This file acts as global instructions and can affect default Codex behavior.",
+  "agentDocument.globalPlaceholder":
+    "Write global Agent instructions, such as general preferences, default workflow, output language, and safety constraints.",
+  "agentDocument.globalEmptyHint": "Saving will create ~/.codex/AGENT.md.",
+  "agentDocument.globalCreate": "Create AGENT.md",
+  "agentDocument.globalSave": "Save AGENT.md",
+
   "settings.title": "Settings",
   "settings.description": "App preferences and local Codex store status.",
   "settings.preferencesBadge": "Preferences",
@@ -234,6 +257,14 @@ export const en: Record<string, string> = {
     "Ferricodex will update the API key in {path}. The existing key is not displayed, and the file will be backed up before saving.",
   "dialog.apiKeyUpdate.note":
     "The API key is written to Codex auth.json. Ferricodex will not display or prefill the existing key.",
+  "dialog.agentDocumentSave.title": "Save Agent document?",
+  "dialog.agentDocumentSave.body": "Ferricodex will modify {path}.",
+  "dialog.agentDocumentSave.note":
+    "This file lives inside the project workspace. Ferricodex checks for external changes before saving to avoid overwriting another editor.",
+  "dialog.globalAgentDocumentSave.title": "Save global Agent document?",
+  "dialog.globalAgentDocumentSave.body": "Ferricodex will modify {path}.",
+  "dialog.globalAgentDocumentSave.note":
+    "This file lives in the Codex home directory and can affect global Codex/Agent behavior. Ferricodex checks for external changes before saving to avoid overwriting another editor.",
 
   "toast.archived": "Session archived.",
   "toast.restored": "Session restored.",
@@ -247,4 +278,8 @@ export const en: Record<string, string> = {
   "toast.providerSettingsFailed": "Failed to save Provider settings.",
   "toast.apiKeyUpdated": "API key updated.",
   "toast.apiKeyUpdateFailed": "Failed to update API key.",
+  "toast.agentDocumentSaved": "Agent document saved.",
+  "toast.agentDocumentFailed": "Failed to save Agent document.",
+  "toast.globalAgentDocumentSaved": "Global Agent document saved.",
+  "toast.globalAgentDocumentFailed": "Failed to save global Agent document.",
 };

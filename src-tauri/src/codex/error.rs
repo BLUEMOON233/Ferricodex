@@ -20,6 +20,7 @@ pub enum CodexError {
     },
     TrashOperation(String),
     PathAccessDenied(String),
+    AgentDocumentOperation(String),
     SettingsOperation(String),
     SearchOperation(String),
     TranscriptPathUnavailable,
@@ -78,6 +79,9 @@ impl fmt::Display for CodexError {
             }
             Self::PathAccessDenied(message) => {
                 write!(formatter, "Codex path access was denied: {message}")
+            }
+            Self::AgentDocumentOperation(message) => {
+                write!(formatter, "Could not update Agent document: {message}")
             }
             Self::SettingsOperation(message) => {
                 write!(formatter, "Could not update Codex settings: {message}")

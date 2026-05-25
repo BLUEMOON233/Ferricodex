@@ -136,6 +136,29 @@ export const zh: Record<string, string> = {
   "workspaceDetail.metadataMissing": "工作区目录不可用。",
   "workspaceDetail.metadataLoading": "正在读取工作区…",
 
+  "agentDocument.title": "Agent 文档",
+  "agentDocument.description":
+    "读取并编辑当前工作区根目录下的 AGENTS.md。保存会影响该项目后续的 Agent/Codex 行为。",
+  "agentDocument.exists": "已存在",
+  "agentDocument.missing": "未创建",
+  "agentDocument.reload": "重新读取",
+  "agentDocument.path": "路径",
+  "agentDocument.size": "大小",
+  "agentDocument.modified": "更新于",
+  "agentDocument.placeholder": "编写这个项目的 Agent 指令，例如构建命令、测试方式、架构说明和注意事项。",
+  "agentDocument.unsaved": "有未保存修改",
+  "agentDocument.emptyHint": "保存后会创建 AGENTS.md。",
+  "agentDocument.create": "创建 AGENTS.md",
+  "agentDocument.save": "保存 AGENTS.md",
+  "agentDocument.globalTitle": "全局 Agent 文档",
+  "agentDocument.globalDescription":
+    "读取并编辑 Codex 主目录下的 AGENT.md。此文件会作为全局提示词影响 Codex 的默认行为。",
+  "agentDocument.globalPlaceholder":
+    "编写全局 Agent 指令，例如通用偏好、默认工作方式、输出语言和安全约束。",
+  "agentDocument.globalEmptyHint": "保存后会创建 ~/.codex/AGENT.md。",
+  "agentDocument.globalCreate": "创建 AGENT.md",
+  "agentDocument.globalSave": "保存 AGENT.md",
+
   "settings.title": "设置",
   "settings.description": "应用偏好和本地 Codex 数据状态。",
   "settings.preferencesBadge": "偏好设置",
@@ -223,6 +246,14 @@ export const zh: Record<string, string> = {
   "dialog.apiKeyUpdate.body":
     "Ferricodex 将更新 {path} 中的 API Key。旧 Key 不会显示，保存前会备份原文件。",
   "dialog.apiKeyUpdate.note": "API Key 会写入 Codex auth.json，不会显示或回填旧 Key。",
+  "dialog.agentDocumentSave.title": "保存 Agent 文档？",
+  "dialog.agentDocumentSave.body": "Ferricodex 将修改 {path}。",
+  "dialog.agentDocumentSave.note":
+    "此文件位于项目工作区内。保存前会检查外部修改，避免覆盖其它编辑器中的改动。",
+  "dialog.globalAgentDocumentSave.title": "保存全局 Agent 文档？",
+  "dialog.globalAgentDocumentSave.body": "Ferricodex 将修改 {path}。",
+  "dialog.globalAgentDocumentSave.note":
+    "此文件位于 Codex 主目录下，会影响全局 Codex/Agent 行为。保存前会检查外部修改，避免覆盖其它编辑器中的改动。",
 
   "toast.archived": "会话已归档。",
   "toast.restored": "会话已恢复。",
@@ -236,4 +267,8 @@ export const zh: Record<string, string> = {
   "toast.providerSettingsFailed": "Provider 设置保存失败。",
   "toast.apiKeyUpdated": "API Key 已更新。",
   "toast.apiKeyUpdateFailed": "API Key 更新失败。",
+  "toast.agentDocumentSaved": "Agent 文档已保存。",
+  "toast.agentDocumentFailed": "Agent 文档保存失败。",
+  "toast.globalAgentDocumentSaved": "全局 Agent 文档已保存。",
+  "toast.globalAgentDocumentFailed": "全局 Agent 文档保存失败。",
 };

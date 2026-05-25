@@ -137,6 +137,26 @@ export type CodexApiKeyUpdate = {
   apiKey: string;
 };
 
+export type CodexAgentDocument = {
+  path: string;
+  exists: boolean;
+  revision: string;
+  content: string;
+  sizeBytes: number | null;
+  modifiedAtMs: number | null;
+};
+
+export type CodexAgentDocumentUpdate = {
+  workspacePath: string;
+  revision: string;
+  content: string;
+};
+
+export type CodexGlobalAgentDocumentUpdate = {
+  revision: string;
+  content: string;
+};
+
 export function toSession(thread: CodexThread): Session {
   return {
     id: thread.id,
@@ -169,6 +189,22 @@ export function searchCodexHistory(query: CodexSearchQuery) {
 
 export function getWorkspaceMetadata(path: string) {
   return invoke<WorkspaceMetadata>("get_workspace_metadata", { path });
+}
+
+export function getWorkspaceAgentDocument(workspacePath: string) {
+  return invoke<CodexAgentDocument>("get_workspace_agent_document", { workspacePath });
+}
+
+export function saveWorkspaceAgentDocument(input: CodexAgentDocumentUpdate) {
+  return invoke<CodexAgentDocument>("save_workspace_agent_document", { input });
+}
+
+export function getGlobalAgentDocument() {
+  return invoke<CodexAgentDocument>("get_global_agent_document");
+}
+
+export function saveGlobalAgentDocument(input: CodexGlobalAgentDocumentUpdate) {
+  return invoke<CodexAgentDocument>("save_global_agent_document", { input });
 }
 
 export function getCodexProviderSettings() {

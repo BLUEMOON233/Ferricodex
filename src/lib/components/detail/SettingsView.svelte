@@ -7,6 +7,7 @@
   import { modKeyLabel } from "$lib/platform";
   import { i18n, t, type LocalePreference } from "$lib/i18n.svelte";
   import type { CodexHomeStatus } from "$lib/codex";
+  import AgentDocumentCard from "./AgentDocumentCard.svelte";
   import ProviderSettingsCard from "./ProviderSettingsCard.svelte";
 
   type Props = {
@@ -173,6 +174,8 @@
       <p class="card-text">{t("settings.codexHome.unavailable")}</p>
     {/if}
   </section>
+
+  <AgentDocumentCard mode="global" />
 
   <ProviderSettingsCard />
 

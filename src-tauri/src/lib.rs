@@ -1,7 +1,8 @@
 mod codex;
 
 use codex::{
-    CodexApiKeyUpdate, CodexAuthStatus, CodexHomeStatus, CodexProviderSettings,
+    CodexAgentDocument, CodexAgentDocumentUpdate, CodexApiKeyUpdate, CodexAuthStatus,
+    CodexGlobalAgentDocumentUpdate, CodexHomeStatus, CodexProviderSettings,
     CodexProviderSettingsUpdate, CodexSearchQuery, CodexSearchResponse, CodexThread,
     CodexTranscript, WorkspaceMetadata,
 };
@@ -36,6 +37,30 @@ fn search_codex_history(query: CodexSearchQuery) -> Result<CodexSearchResponse, 
 #[tauri::command]
 fn get_workspace_metadata(path: String) -> Result<WorkspaceMetadata, String> {
     codex::workspace_metadata(path).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn get_workspace_agent_document(workspace_path: String) -> Result<CodexAgentDocument, String> {
+    codex::agent_document(workspace_path).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn save_workspace_agent_document(
+    input: CodexAgentDocumentUpdate,
+) -> Result<CodexAgentDocument, String> {
+    codex::save_agent_document(input).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn get_global_agent_document() -> Result<CodexAgentDocument, String> {
+    codex::global_agent_document().map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn save_global_agent_document(
+    input: CodexGlobalAgentDocumentUpdate,
+) -> Result<CodexAgentDocument, String> {
+    codex::save_global_agent_document(input).map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -175,6 +200,10 @@ pub fn run() {
             get_codex_transcript,
             search_codex_history,
             get_workspace_metadata,
+            get_workspace_agent_document,
+            save_workspace_agent_document,
+            get_global_agent_document,
+            save_global_agent_document,
             get_codex_provider_settings,
             save_codex_provider_settings,
             get_codex_auth_status,

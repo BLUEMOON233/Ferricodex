@@ -97,6 +97,15 @@ Known Bugs:
 
 ## Changelog
 
+### v0.2.0
+
+- Added Provider settings management so the Settings view can read and save the default model and `model_providers` entries in Codex `config.toml`.
+- Added an API key update entry that writes to Codex `auth.json` without displaying or prefilling existing secrets.
+- Added workspace `AGENTS.md` management in workspace details for reading, creating, and saving project-level Agent instructions.
+- Added global `~/.codex/AGENT.md` management in Settings for editing Codex global instructions.
+- Added size limits, symlink rejection, and revision conflict checks when saving Agent documents to avoid overwriting external edits.
+- Refined the history list by removing source labels beside workspace titles and making the “Projects / Conversations” section headers more visible.
+
 ### v0.1.1
 
 - Renamed the project to Ferricodex across the app display name, Tauri bundle identifier, frontend package name, Rust crate/lib name, documentation, and release workflow.

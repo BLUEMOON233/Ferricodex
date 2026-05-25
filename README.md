@@ -89,6 +89,15 @@ npm run tauri build
 
 ## 更新日志
 
+### v0.2.0
+
+- 新增 Provider 设置管理，可在设置页读取并保存 Codex `config.toml` 中的默认模型与 `model_providers` 配置。
+- 新增 API Key 更新入口，写入 Codex `auth.json`，不会显示或回填已有密钥。
+- 新增工作区 `AGENTS.md` 管理，可在工作区详情中读取、创建和保存项目级 Agent 指令。
+- 新增全局 `~/.codex/AGENT.md` 管理，可在设置页编辑 Codex 全局提示词。
+- Agent 文档保存加入大小限制、符号链接拒绝和 revision 冲突检测，避免覆盖外部编辑器中的改动。
+- 优化历史列表展示：移除工作区标题旁的来源标签，强化“项目 / 对话”分组标题，减少标题遮挡。
+
 ### v0.1.1
 
 - 将项目完整重命名为 Ferricodex，包括应用显示名、Tauri bundle identifier、前端包名、Rust crate/lib 名、文档和 release workflow。

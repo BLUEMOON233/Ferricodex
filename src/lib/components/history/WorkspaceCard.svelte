@@ -1,10 +1,8 @@
 <script lang="ts">
   import { ChevronDown, ChevronRight, Folder, FolderGit2, Sparkles } from "@lucide/svelte";
-  import { Badge } from "$lib/components/ui";
   import SessionRow from "./SessionRow.svelte";
   import { collapse } from "$lib/collapse.svelte";
   import { t } from "$lib/i18n.svelte";
-  import { workspaceSourceLabelKey } from "$lib/workspace";
   import type { Session } from "$lib/codex";
   import type { Workspace, WorkspaceSource } from "$lib/workspace";
 
@@ -51,13 +49,6 @@
   }
 
   const SourceIcon = $derived(iconFor(workspace.source));
-  const sourceLabel = $derived(t(workspaceSourceLabelKey(workspace.source)));
-
-  function badgeVariant(source: WorkspaceSource) {
-    if (source === "codexTaskFolder") return "accent" as const;
-    if (source === "codexWorktree") return "warning" as const;
-    return "neutral" as const;
-  }
 </script>
 
 <article class="workspace-card" class:active={isWorkspaceActive}>
@@ -89,7 +80,6 @@
       <span class="header-text">
         <span class="header-title">
           <span class="workspace-name" title={workspace.name}>{workspace.name}</span>
-          <Badge variant={badgeVariant(workspace.source)}>{sourceLabel}</Badge>
         </span>
         <span class="workspace-path" title={workspace.path}>{workspace.path}</span>
       </span>
