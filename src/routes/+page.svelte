@@ -1264,7 +1264,8 @@
   }
 
   :global(.dialog-target) {
-    overflow: hidden;
+    overflow-x: auto;
+    overflow-y: hidden;
     margin-top: 4px;
     padding: 8px 10px;
     border-radius: var(--radius-sm);
@@ -1272,7 +1273,13 @@
     color: var(--fg);
     font-size: 12px;
     font-weight: 500;
-    text-overflow: ellipsis;
+    overflow-wrap: anywhere;
+    scrollbar-width: thin;
     white-space: nowrap;
+  }
+
+  :global(.dialog-note) {
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
 </style>

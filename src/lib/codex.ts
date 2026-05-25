@@ -99,6 +99,44 @@ export type CodexHomeStatus = {
   source: "env" | "default";
 };
 
+export type CodexProviderConfig = {
+  id: string;
+  name: string;
+  baseUrl: string;
+  wireApi: string;
+  envKey: string;
+  requiresOpenaiAuth: boolean | null;
+};
+
+export type CodexProviderSettings = {
+  path: string;
+  exists: boolean;
+  revision: string;
+  model: string;
+  modelProvider: string;
+  providers: CodexProviderConfig[];
+  hasSecretFields: boolean;
+};
+
+export type CodexProviderSettingsUpdate = {
+  revision: string;
+  model: string;
+  modelProvider: string;
+  providers: CodexProviderConfig[];
+};
+
+export type CodexAuthStatus = {
+  path: string;
+  exists: boolean;
+  revision: string;
+  hasApiKey: boolean;
+};
+
+export type CodexApiKeyUpdate = {
+  revision: string;
+  apiKey: string;
+};
+
 export function toSession(thread: CodexThread): Session {
   return {
     id: thread.id,
@@ -131,6 +169,22 @@ export function searchCodexHistory(query: CodexSearchQuery) {
 
 export function getWorkspaceMetadata(path: string) {
   return invoke<WorkspaceMetadata>("get_workspace_metadata", { path });
+}
+
+export function getCodexProviderSettings() {
+  return invoke<CodexProviderSettings>("get_codex_provider_settings");
+}
+
+export function saveCodexProviderSettings(input: CodexProviderSettingsUpdate) {
+  return invoke<CodexProviderSettings>("save_codex_provider_settings", { input });
+}
+
+export function getCodexAuthStatus() {
+  return invoke<CodexAuthStatus>("get_codex_auth_status");
+}
+
+export function updateCodexApiKey(input: CodexApiKeyUpdate) {
+  return invoke<CodexAuthStatus>("update_codex_api_key", { input });
 }
 
 export function setThreadArchiveState(threadId: string, archived: boolean) {

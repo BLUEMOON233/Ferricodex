@@ -87,7 +87,9 @@
 <style>
   .dialog {
     width: min(440px, calc(100vw - 32px));
+    max-width: calc(100vw - 32px);
     max-height: calc(100vh - 64px);
+    box-sizing: border-box;
     margin: auto;
     padding: 0;
     border: 0;
@@ -105,7 +107,19 @@
   .dialog-card {
     display: grid;
     gap: 14px;
+    min-width: 0;
+    max-width: 100%;
+    max-height: calc(100vh - 64px);
+    box-sizing: border-box;
+    overflow: auto;
     padding: 20px 22px 18px;
+  }
+
+  .dialog-header,
+  .dialog-body,
+  .dialog-actions {
+    min-width: 0;
+    max-width: 100%;
   }
 
   .dialog-header h2 {
@@ -123,6 +137,7 @@
     color: var(--fg-secondary);
     font-size: 13px;
     line-height: 1.5;
+    overflow-wrap: anywhere;
   }
 
   .dialog-body {
@@ -142,9 +157,28 @@
   .dialog-actions {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     justify-content: flex-end;
     gap: 8px;
     margin-top: 4px;
+  }
+
+  .dialog-actions :global(.btn) {
+    max-width: 100%;
+  }
+
+  @media (max-width: 520px) {
+    .dialog-card {
+      padding: 18px 18px 16px;
+    }
+
+    .dialog-actions {
+      justify-content: stretch;
+    }
+
+    .dialog-actions :global(.btn) {
+      flex: 1 1 auto;
+    }
   }
 
   @keyframes dialog-in {

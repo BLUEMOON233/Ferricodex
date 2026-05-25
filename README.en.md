@@ -95,6 +95,34 @@ Known Bugs:
 
 - [ ] Windows desktop shortcut icon may appear as a blank white document instead of the Tauri app icon; verify the generated `.ico`, installer shortcut metadata, and Windows icon cache before release.
 
+## Changelog
+
+### v0.1.1
+
+- Renamed the project to Ferricodex across the app display name, Tauri bundle identifier, frontend package name, Rust crate/lib name, documentation, and release workflow.
+- Made the default README Chinese and added `README.en.md` for the English version, with links between both languages.
+- Synchronized the version to `0.1.1` and added release workflow validation for package/Tauri/Cargo version consistency.
+- Hardened local Codex path boundaries so transcript and workspace metadata reads are limited to paths referenced by current Codex history.
+- Added per-file, per-line, and per-message limits to transcript JSONL parsing to avoid blocking on abnormal history files.
+- Made session deletion tolerate missing transcript files when the path still belongs to Codex session directories, continuing database and `session_index.jsonl` cleanup.
+- Clarified non-generated workspace deletion dialogs so they explain that only session history is removed and user project folders are kept.
+- Improved the bulk selection toolbar layout and shortened “Select visible” to “Select all”.
+- Fixed long Windows paths overflowing delete dialogs and clipping action buttons.
+
+### v0.1.0
+
+- Scaffolded the Tauri 2 + Svelte 5 + Rust desktop app foundation.
+- Detected Codex home from `CODEX_HOME` or the default user directory, then read the `threads` table from `state_5.sqlite` in read-only flows.
+- Added active/archive session lists, search, previews, selected-session details, and workspace grouping.
+- Parsed selected-session transcript JSONL on demand with text and role filters.
+- Added bounded global transcript search across active, archived, or all Codex sessions.
+- Added session archive/unarchive by moving rollout JSONL files according to Codex storage semantics and updating database state.
+- Added single-session and bulk session Trash cleanup, including Codex thread rows, known references, and `session_index.jsonl` entries.
+- Added generated task workspace cleanup with optional saved workspace copies before deleting the original folder.
+- Added user-project workspace removal from Codex history while keeping actual project files untouched.
+- Added the multi-platform GitHub release workflow for unsigned macOS, Windows, and Linux bundles.
+- Generated Tauri desktop app icons and pushed the initial repository to GitHub.
+
 Completed:
 
 - [x] Scaffold Tauri 2 + Svelte 5 desktop app.

@@ -1,8 +1,9 @@
 mod codex;
 
 use codex::{
-    CodexHomeStatus, CodexSearchQuery, CodexSearchResponse, CodexThread, CodexTranscript,
-    WorkspaceMetadata,
+    CodexApiKeyUpdate, CodexAuthStatus, CodexHomeStatus, CodexProviderSettings,
+    CodexProviderSettingsUpdate, CodexSearchQuery, CodexSearchResponse, CodexThread,
+    CodexTranscript, WorkspaceMetadata,
 };
 use std::path::PathBuf;
 use tauri_plugin_opener::OpenerExt;
@@ -35,6 +36,28 @@ fn search_codex_history(query: CodexSearchQuery) -> Result<CodexSearchResponse, 
 #[tauri::command]
 fn get_workspace_metadata(path: String) -> Result<WorkspaceMetadata, String> {
     codex::workspace_metadata(path).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn get_codex_provider_settings() -> Result<CodexProviderSettings, String> {
+    codex::provider_settings().map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn save_codex_provider_settings(
+    input: CodexProviderSettingsUpdate,
+) -> Result<CodexProviderSettings, String> {
+    codex::save_provider_settings(input).map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn get_codex_auth_status() -> Result<CodexAuthStatus, String> {
+    codex::auth_status().map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+fn update_codex_api_key(input: CodexApiKeyUpdate) -> Result<CodexAuthStatus, String> {
+    codex::update_api_key(input).map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -152,6 +175,10 @@ pub fn run() {
             get_codex_transcript,
             search_codex_history,
             get_workspace_metadata,
+            get_codex_provider_settings,
+            save_codex_provider_settings,
+            get_codex_auth_status,
+            update_codex_api_key,
             set_thread_archive_state,
             move_thread_to_trash,
             move_threads_to_trash,

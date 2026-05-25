@@ -87,6 +87,34 @@ npm run tauri build
 
 - [ ] Windows 桌面快捷方式图标可能显示为空白文档，而不是 Tauri 应用图标；发布前需要检查生成的 `.ico`、安装器快捷方式元数据以及 Windows 图标缓存。
 
+## 更新日志
+
+### v0.1.1
+
+- 将项目完整重命名为 Ferricodex，包括应用显示名、Tauri bundle identifier、前端包名、Rust crate/lib 名、文档和 release workflow。
+- 将默认 README 改为中文，并新增 `README.en.md` 英文版，支持中英文互跳。
+- 同步版本号到 `0.1.1`，并让 release workflow 在发布前校验 package/Tauri/Cargo 版本一致性。
+- 加固 Codex 本地路径访问边界：transcript 与 workspace 元数据读取仅允许访问当前 Codex 历史引用的路径。
+- 为 transcript JSONL 解析增加单文件、单行和消息长度上限，避免异常历史文件阻塞应用。
+- 删除 session 时兼容 transcript 文件已缺失的脏数据状态，只要路径仍属于 Codex session 目录，就继续清理数据库和 `session_index.jsonl`。
+- 修正非生成 workspace 的删除弹窗语义，明确仅清理关联会话历史，不移动或删除用户项目目录。
+- 优化批量选择工具条布局，并将“选中当前可见”精简为“全选”。
+- 修复长 Windows 路径撑开删除弹窗的问题，避免弹窗按钮被裁切。
+
+### v0.1.0
+
+- 搭建 Tauri 2 + Svelte 5 + Rust 桌面应用基础架构。
+- 从 `CODEX_HOME` 或默认用户目录检测 Codex home，并以只读方式读取 `state_5.sqlite` 中的 `threads` 表。
+- 提供活跃/归档 session 列表、搜索、预览、选中 session 详情和 workspace 分组视图。
+- 按需解析选中 session 的 transcript JSONL，并支持文本与角色筛选。
+- 提供有边界的全局 transcript 搜索，可在活跃、归档或全部 Codex session 中扫描匹配内容。
+- 支持 session 归档/取消归档，按 Codex 存储语义移动 rollout JSONL 并更新数据库状态。
+- 支持单个或批量 session 移动到系统废纸篓，并清理 Codex thread、已知引用和 `session_index.jsonl` 条目。
+- 支持删除 Codex 生成任务目录对应的 session 与 workspace，或先保存 workspace 副本再删除原目录。
+- 支持从 Codex 历史中移除用户项目 workspace，同时保留实际项目文件。
+- 添加多平台 GitHub release workflow，用于构建 macOS、Windows 和 Linux 未签名安装包。
+- 生成 Tauri 桌面应用图标，并完成初始 GitHub 仓库推送。
+
 已完成：
 
 - [x] 搭建 Tauri 2 + Svelte 5 桌面应用脚手架。

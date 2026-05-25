@@ -170,6 +170,32 @@ export const en: Record<string, string> = {
   "settings.codexHome.facts.stateDb": "State DB",
   "settings.codexHome.source.env": "CODEX_HOME env",
   "settings.codexHome.source.default": "Default location",
+  "settings.provider.title": "Provider settings",
+  "settings.provider.description":
+    "Read and edit the default model and model_providers fields in Codex config.toml. The original file is backed up before saving.",
+  "settings.provider.reload": "Reload",
+  "settings.provider.model": "Default model",
+  "settings.provider.defaultProvider": "Default Provider",
+  "settings.provider.noDefault": "No default",
+  "settings.provider.providers": "Providers",
+  "settings.provider.defaultBadge": "Default",
+  "settings.provider.newProvider": "New Provider",
+  "settings.provider.id": "Provider ID",
+  "settings.provider.name": "Name",
+  "settings.provider.baseUrl": "Base URL",
+  "settings.provider.wireApi": "Wire API",
+  "settings.provider.envKey": "Env Var",
+  "settings.provider.requiresOpenaiAuth": "Requires OpenAI Auth",
+  "settings.provider.empty": "No model_providers entries were found in this config.",
+  "settings.provider.add": "Add Provider",
+  "settings.provider.save": "Save settings",
+  "settings.provider.secretNotice":
+    "Secret-like fields were detected. Ferricodex will not display or edit them, and will keep them when saving.",
+  "settings.provider.apiKey": "API Key",
+  "settings.provider.apiKeyConfigured": "Configured",
+  "settings.provider.apiKeyMissing": "Not configured",
+  "settings.provider.apiKeyPlaceholder": "Enter a new API key",
+  "settings.provider.updateApiKey": "Update Key",
   "settings.about.title": "About",
   "settings.about.description":
     "Ferricodex reads local Codex sessions and only writes when you explicitly confirm archive, restore, or trash actions. Settings live in this view; nothing is sent off-device.",
@@ -198,6 +224,16 @@ export const en: Record<string, string> = {
   "dialog.bulkTrash.body":
     "All selected sessions will be moved to your system Trash. This cannot be undone from inside the app.",
   "dialog.bulkTrash.confirm": "Move to Trash",
+  "dialog.providerSave.title": "Save Provider settings?",
+  "dialog.providerSave.body":
+    "Ferricodex will modify {path}, updating only model, model_provider, and model_providers fields.",
+  "dialog.providerSave.note":
+    "A .bak backup will be created before saving. Other Codex settings are preserved as much as possible.",
+  "dialog.apiKeyUpdate.title": "Update API key?",
+  "dialog.apiKeyUpdate.body":
+    "Ferricodex will update the API key in {path}. The existing key is not displayed, and the file will be backed up before saving.",
+  "dialog.apiKeyUpdate.note":
+    "The API key is written to Codex auth.json. Ferricodex will not display or prefill the existing key.",
 
   "toast.archived": "Session archived.",
   "toast.restored": "Session restored.",
@@ -207,4 +243,8 @@ export const en: Record<string, string> = {
   "toast.workspaceTrashedSaved": "Session moved to Trash. Workspace folder saved as a copy.",
   "toast.bulkTrashed_one": "{count} session moved to Trash.",
   "toast.bulkTrashed_other": "{count} sessions moved to Trash.",
+  "toast.providerSettingsSaved": "Provider settings saved.",
+  "toast.providerSettingsFailed": "Failed to save Provider settings.",
+  "toast.apiKeyUpdated": "API key updated.",
+  "toast.apiKeyUpdateFailed": "Failed to update API key.",
 };
