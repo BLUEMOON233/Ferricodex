@@ -19,26 +19,17 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: release-${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
-  build-release:
-    name: Build ${{ matrix.name }}
-    runs-on: ${{ matrix.runner }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: macOS universal
-            runner: macos-latest
-            args: "--target universal-apple-darwin"
-            rustTargets: "x86_64-apple-darwin,aarch64-apple-darwin"
-          - name: Windows NSIS
-            runner: windows-latest
-            args: "--bundles nsis"
-            rustTargets: ""
-          - name: Linux AppImage and deb
-            runner: ubuntu-22.04
-            args: "--bundles appimage,deb"
-            rustTargets: ""
+  prepare-release:
+    name: Prepare release
+    runs-on: ubuntu-latest
+    outputs:
+      release_tag: ${{ steps.release.outputs.release_tag }}
+      release_draft: ${{ steps.release.outputs.release_draft }}
 
     steps:
       - name: Checkout repository
@@ -47,33 +38,12 @@ jobs:
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
           fetch-depth: 0
 
-      - name: Install Linux dependencies
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential \
-            curl \
-            wget \
-            file \
-            libxdo-dev \
-            libssl-dev \
-            libgtk-3-dev \
-            libwebkit2gtk-4.1-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev \
-            patchelf
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-
       - name: Validate release tag and versions
+        id: release
         shell: bash
         env:
           RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+          RELEASE_DRAFT: ${{ github.event_name == 'push' || inputs.draft }}
         run: |
           set -euo pipefail
 
@@ -106,7 +76,69 @@ jobs:
           }
           NODE
 
+          echo "release_tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "release_draft=$RELEASE_DRAFT" >> "$GITHUB_OUTPUT"
+
+  build-release:
+    name: Build ${{ matrix.name }}
+    needs: prepare-release
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS universal
+            artifactName: macos-bundles
+            runner: macos-latest
+            args: "--target universal-apple-darwin"
+            rustTargets: "x86_64-apple-darwin,aarch64-apple-darwin"
+          - name: Windows NSIS
+            artifactName: windows-bundles
+            runner: windows-latest
+            args: "--bundles nsis"
+            rustTargets: ""
+          - name: Linux AppImage and deb
+            artifactName: linux-bundles
+            runner: ubuntu-22.04
+            args: "--bundles appimage,deb"
+            rustTargets: ""
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare-release.outputs.release_tag }}
+          fetch-depth: 0
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libgtk-3-dev \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
       - name: Setup Rust
+        if: matrix.rustTargets == ''
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Rust with targets
+        if: matrix.rustTargets != ''
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.rustTargets }}
@@ -125,14 +157,68 @@ jobs:
       - name: Run Rust checks
         run: cargo check --manifest-path src-tauri/Cargo.toml
 
-      - name: Build and upload Tauri bundles
+      - name: Build Tauri bundles
         uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
-          releaseName: "Ferricodex ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}"
-          releaseBody: "Unsigned multi-platform build. Download the asset for your platform."
-          releaseDraft: ${{ github.event_name == 'push' || inputs.draft }}
-          prerelease: false
           args: ${{ matrix.args }}
+
+      - name: Upload bundles as workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifactName }}
+          if-no-files-found: error
+          retention-days: 7
+          path: |
+            src-tauri/target/**/release/bundle/**/*.dmg
+            src-tauri/target/**/release/bundle/**/*.exe
+            src-tauri/target/**/release/bundle/**/*.msi
+            src-tauri/target/**/release/bundle/**/*.AppImage
+            src-tauri/target/**/release/bundle/**/*.deb
+            src-tauri/target/**/release/bundle/**/*.rpm
+
+  publish-release:
+    name: Publish GitHub release
+    needs:
+      - prepare-release
+      - build-release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download bundle artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Create or update GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ needs.prepare-release.outputs.release_tag }}
+          RELEASE_DRAFT: ${{ needs.prepare-release.outputs.release_draft }}
+        run: |
+          set -euo pipefail
+
+          mapfile -t assets < <(find release-assets -type f | sort)
+          if [[ ${#assets[@]} -eq 0 ]]; then
+            echo "No release assets were downloaded from build jobs." >&2
+            exit 1
+          fi
+
+          release_title="Ferricodex $RELEASE_TAG"
+          release_notes="Unsigned multi-platform build. Download the asset for your platform."
+
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release edit "$RELEASE_TAG" \
+              --title "$release_title" \
+              --notes "$release_notes"
+          else
+            create_args=("$RELEASE_TAG" --title "$release_title" --notes "$release_notes")
+            if [[ "$RELEASE_DRAFT" == "true" ]]; then
+              create_args+=(--draft)
+            fi
+
+            gh release create "${create_args[@]}"
+          fi
+
+          gh release upload "$RELEASE_TAG" "${assets[@]}" --clobber
