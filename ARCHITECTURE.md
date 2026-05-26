@@ -73,12 +73,12 @@ Workspace management should remain separate from history management:
   pre-replace concurrent-change check.
 - Generated task workspaces are recognized defensively by the shape
   `~/Documents/Codex/YYYY-MM-DD/<folder>` (or an explicit generated-workspace
-  root override). A generated workspace is considered bound to one session: the
-  delete flow can move the session and generated folder to Trash, or first save
+  root override). A generated workspace can be referenced by one or more Codex
+  sessions: the delete flow removes every session attached to the same
+  normalized `cwd` and then moves the generated folder to Trash, or first saves
   a copy under `~/Documents/Ferricodex Saved Workspaces/YYYY-MM-DD/<folder>` and then
-  move the original folder to Trash. If the folder is missing, deletion
-  downgrades to session-only cleanup; if multiple sessions reference the same
-  generated folder, folder deletion is stopped for safety.
+  moves the original folder to Trash. If the folder is missing, deletion
+  downgrades to session-only cleanup for all attached sessions.
 - User-project workspace removal deletes all Codex sessions attached to that
   normalized `cwd`, including transcripts, thread rows, known references, and
   `session_index.jsonl` entries. It must not modify the project/workspace files.
@@ -93,10 +93,10 @@ Session Move to Trash is limited to rollout JSONL files under `sessions/` or
 `archived_sessions/`, the matching thread row cleanup, foreign-key cascaded
 thread metadata, `thread_spawn_edges`, `agent_job_items.assigned_thread_id`,
 and the matching `session_index.jsonl` entry. Generated task-folder deletion is
-limited to `~/Documents/Codex/YYYY-MM-DD/<folder>`-shaped directories after the
-one-session safety check, with an optional saved copy. User project workspace
-removal must only alter Codex history metadata and transcript files, never the
-workspace contents.
+limited to `~/Documents/Codex/YYYY-MM-DD/<folder>`-shaped directories and the
+Codex sessions attached to the same normalized `cwd`, with an optional saved
+copy. User project workspace removal must only alter Codex history metadata and
+transcript files, never the workspace contents.
 
 App-owned files are limited to settings, local tags, disposable indexes, and small bounded logs.
 

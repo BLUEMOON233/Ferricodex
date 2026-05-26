@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { FolderOpen, Inbox, Search } from "@lucide/svelte";
+  import { FolderOpen, Inbox, RefreshCw, Search } from "@lucide/svelte";
   import { IconButton, Kbd, SearchField, Skeleton, StatePanel } from "$lib/components/ui";
   import { modKeyLabel } from "$lib/platform";
   import BulkToolbar from "./BulkToolbar.svelte";
@@ -62,6 +62,7 @@
     onClearSelection: () => void;
     onBulkTrash: () => void;
     onOpenCodexHome: () => void;
+    onSyncSessions: () => void;
     onGlobalSearchQueryChange: (value: string) => void;
     onGlobalSearchScopeChange: (scope: CodexSearchScope) => void;
     onGlobalSearchSubmit: () => void;
@@ -100,6 +101,7 @@
     onClearSelection,
     onBulkTrash,
     onOpenCodexHome,
+    onSyncSessions,
     onGlobalSearchQueryChange,
     onGlobalSearchScopeChange,
     onGlobalSearchSubmit,
@@ -128,14 +130,24 @@
       <h1>{title}</h1>
       <p class="head-description">{description}</p>
     </div>
-    <IconButton
-      aria-label={t("history.openCodexHome")}
-      title={t("history.openCodexHome")}
-      disabled={!codexHome?.exists}
-      onclick={onOpenCodexHome}
-    >
-      <FolderOpen size={15} />
-    </IconButton>
+    <div class="head-actions">
+      <IconButton
+        aria-label={t("history.sync")}
+        title={t("history.sync")}
+        disabled={isLoading}
+        onclick={onSyncSessions}
+      >
+        <RefreshCw size={15} />
+      </IconButton>
+      <IconButton
+        aria-label={t("history.openCodexHome")}
+        title={t("history.openCodexHome")}
+        disabled={!codexHome?.exists}
+        onclick={onOpenCodexHome}
+      >
+        <FolderOpen size={15} />
+      </IconButton>
+    </div>
   </header>
 
   <div class="search-bar">
@@ -269,6 +281,13 @@
 
   .head-text {
     min-width: 0;
+  }
+
+  .head-actions {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 4px;
   }
 
   .eyebrow {

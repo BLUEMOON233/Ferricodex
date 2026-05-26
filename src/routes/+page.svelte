@@ -51,6 +51,10 @@
     workspaces: WorkspaceListItem[];
     sessionCount: number;
   };
+  type LoadSessionsOptions = {
+    preserveSelection?: boolean;
+    showToast?: boolean;
+  };
 
   let query = $state("");
   let historyFilter = $state<HistoryFilter>("active");
@@ -180,41 +184,82 @@
     };
   }
 
-  async function loadSessions() {
+  async function loadSessions(options: LoadSessionsOptions = {}) {
+    const previousSelectedKind = selectedKind;
+    const previousSelectedId = selectedId;
+    let didReload = false;
+
     isLoading = true;
     loadError = "";
 
     try {
-      codexHome = await getCodexHomeStatus();
+      const nextCodexHome = await getCodexHomeStatus();
       const threads = await listCodexThreads();
-      sessions = threads.map(toSession);
-      selectedKind = "session";
-      selectedId = sessions[0]?.id ?? "";
+      const nextSessions = threads.map(toSession);
+      const nextWorkspaces = groupSessionsByWorkspace(nextSessions, nextCodexHome?.path);
+
+      codexHome = nextCodexHome;
+      sessions = nextSessions;
+      didReload = true;
+
+      if (
+        options.preserveSelection &&
+        previousSelectedKind === "session" &&
+        nextSessions.some((session) => session.id === previousSelectedId)
+      ) {
+        selectedKind = "session";
+        selectedId = previousSelectedId;
+      } else if (
+        options.preserveSelection &&
+        previousSelectedKind === "workspace" &&
+        nextWorkspaces.some((workspace) => workspace.id === previousSelectedId)
+      ) {
+        selectedKind = "workspace";
+        selectedId = previousSelectedId;
+      } else {
+        selectedKind = "session";
+        selectedId = nextSessions[0]?.id ?? "";
+      }
+
+      if (options.showToast) {
+        toast.success(t("toast.sessionsSynced"));
+      }
     } catch (error) {
       loadError = errorMessage(error);
-      sessions = [];
-      selectedKind = "session";
-      selectedId = "";
+      if (!options.preserveSelection) {
+        sessions = [];
+        selectedKind = "session";
+        selectedId = "";
+      }
+      if (options.showToast) {
+        toast.error(t("toast.sessionsSyncFailed"), loadError);
+      }
     } finally {
-      workspaceMetadataByPath = {};
-      workspaceMetadataErrorsByPath = {};
-      transcriptByPath = {};
-      transcriptErrorsByPath = {};
-      loadingWorkspacePath = "";
-      loadingTranscriptPath = "";
-      openerError = "";
-      archiveError = "";
-      archiveActionSessionId = "";
-      clearPendingArchive();
-      trashError = "";
-      trashActionKey = "";
-      clearPendingTrash();
-      clearBulkSelection();
-      pendingTranscriptQuery = "";
-      resetTranscriptFilters();
-      resetGlobalSearchResults();
+      if (didReload || !options.preserveSelection) {
+        workspaceMetadataByPath = {};
+        workspaceMetadataErrorsByPath = {};
+        transcriptByPath = {};
+        transcriptErrorsByPath = {};
+        loadingWorkspacePath = "";
+        loadingTranscriptPath = "";
+        openerError = "";
+        archiveError = "";
+        archiveActionSessionId = "";
+        clearPendingArchive();
+        trashError = "";
+        trashActionKey = "";
+        clearPendingTrash();
+        clearBulkSelection();
+        pendingTranscriptQuery = "";
+        resetTranscriptFilters();
+        resetGlobalSearchResults();
+      }
       isLoading = false;
     }
+  }
+
+  async function syncCodexSessions() {
+    await loadSessions({ preserveSelection: true, showToast: true });
   }
 
   async function loadTranscriptForSession(session: Session, force = false) {
@@ -1046,6 +1091,7 @@
       onClearSelection={handleClearSelection}
       onBulkTrash={handleBulkTrash}
       onOpenCodexHome={openCodexHomeDirectory}
+      onSyncSessions={syncCodexSessions}
       onGlobalSearchQueryChange={(v) => (globalSearchQuery = v)}
       onGlobalSearchScopeChange={(v) => (globalSearchScope = v)}
       onGlobalSearchSubmit={runGlobalSearch}

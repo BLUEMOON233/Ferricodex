@@ -79,15 +79,22 @@ npm run tauri build
 
 ## 当前状态
 
-项目目前可以从 `state_5.sqlite` 读取本地 Codex thread 元数据，渲染可搜索的活跃/归档 session 与 workspace 视图，打开本地文件夹，并且只在选中 session 时按需解析/筛选有边界的 transcript 预览。项目也支持在活跃、归档或全部 Codex session 中进行有边界的按需全局 transcript 搜索。
+项目目前可以从 `state_5.sqlite` 读取本地 Codex thread 元数据，渲染可搜索的活跃/归档 session 与 workspace 视图，打开本地文件夹，并且只在选中 session 时按需解析/筛选有边界的 transcript 预览。项目也支持在活跃、归档或全部 Codex session 中进行有边界的按需全局 transcript 搜索，并可通过历史面板中的同步按钮手动重新读取 Codex 新增的会话。
 
-应用可以在用户确认后，以兼容 Codex 的方式在活跃/归档位置之间移动 session，或删除选中的 session 与 workspace 历史，并清理已知 Codex 数据库记录和 `session_index.jsonl` 条目。位于 `~/Documents/Codex/YYYY-MM-DD/<folder>` 下的 Codex 生成任务目录，可以随绑定 session 一起移动到系统废纸篓，也可以先保存副本到 `~/Documents/Ferricodex Saved Workspaces/` 后再删除原目录。用户项目 workspace 可以从 Codex 历史中移除，而不会触碰实际项目文件。
+应用可以在用户确认后，以兼容 Codex 的方式在活跃/归档位置之间移动 session，或删除选中的 session 与 workspace 历史，并清理已知 Codex 数据库记录和 `session_index.jsonl` 条目。位于 `~/Documents/Codex/YYYY-MM-DD/<folder>` 下的 Codex 生成任务目录，可以随同一规范化 `cwd` 下的所有关联 session 一起移动到系统废纸篓，也可以先保存副本到 `~/Documents/Ferricodex Saved Workspaces/` 后再删除原目录。用户项目 workspace 可以从 Codex 历史中移除，而不会触碰实际项目文件。
 
 已知问题：
 
 - [ ] Windows 桌面快捷方式图标可能显示为空白文档，而不是 Tauri 应用图标；发布前需要检查生成的 `.ico`、安装器快捷方式元数据以及 Windows 图标缓存。
 
 ## 更新日志
+
+### v0.2.1
+
+- 新增历史面板同步按钮，可在 Ferricodex 已打开时手动重新读取 Codex 新增的会话，并尽量保留当前选中的 session 或 workspace。
+- 修复 Codex 生成任务目录被多个 session 引用时无法删除的问题；现在会删除同一规范化 `cwd` 下的所有关联 session，再处理生成目录。
+- 更新生成 workspace 删除说明和安全边界文档，明确多会话关联目录的处理方式。
+- 同步版本号到 `0.2.1`，用于发布 `v0.2.1`。
 
 ### v0.2.0
 

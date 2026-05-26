@@ -87,15 +87,24 @@ archived, or all Codex sessions, and move sessions between Codex-compatible
 active/archive locations or delete selected sessions and workspace history with
 known Codex database and `session_index.jsonl` cleanup after user confirmation.
 Codex-generated task folders under `~/Documents/Codex/YYYY-MM-DD/<folder>` can
-be moved to the system Trash with the bound session, optionally after saving a
-copy under `~/Documents/Ferricodex Saved Workspaces/`. User project workspaces can be
-removed from Codex history without touching project files.
+be moved to the system Trash with every session attached to the same normalized
+`cwd`, optionally after saving a copy under `~/Documents/Ferricodex Saved
+Workspaces/`. User project workspaces can be removed from Codex history without
+touching project files. A sync button in the history panel can manually reload
+new Codex sessions created while Ferricodex is already open.
 
 Known Bugs:
 
 - [ ] Windows desktop shortcut icon may appear as a blank white document instead of the Tauri app icon; verify the generated `.ico`, installer shortcut metadata, and Windows icon cache before release.
 
 ## Changelog
+
+### v0.2.1
+
+- Added a history-panel sync button that manually reloads new Codex sessions while Ferricodex is already open, while preserving the selected session or workspace when possible.
+- Fixed generated Codex task folders that are referenced by multiple sessions; Ferricodex now deletes every session attached to the same normalized `cwd` before handling the generated folder.
+- Updated generated workspace deletion docs and safety boundaries to describe multi-session folder handling.
+- Synchronized versions to `0.2.1` for the `v0.2.1` release.
 
 ### v0.2.0
 

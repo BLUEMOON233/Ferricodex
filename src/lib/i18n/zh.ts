@@ -33,6 +33,7 @@ export const zh: Record<string, string> = {
   "history.workspaces_other": "{count} 个工作区",
   "history.sessions_one": "{count} 个会话",
   "history.sessions_other": "{count} 个会话",
+  "history.sync": "同步 Codex 会话",
   "history.openCodexHome": "打开 Codex 数据目录",
   "history.empty.searchTitle": "没有匹配的搜索结果",
   "history.empty.searchHint": "换个关键词，或清除当前搜索。",
@@ -227,7 +228,7 @@ export const zh: Record<string, string> = {
   "dialog.trashSession.confirm": "移到废纸篓",
   "dialog.trashWorkspace.title": "删除生成的工作区？",
   "dialog.trashWorkspace.body":
-    "这是 Codex 生成的任务目录。请选择如何处理工作区目录与对应会话。",
+    "这是 Codex 生成的任务目录。请选择如何处理工作区目录与该目录下的所有关联会话。",
   "dialog.trashWorkspace.saveCopy": "保留副本后删除",
   "dialog.trashWorkspace.deleteOnly": "直接删除",
   "dialog.trashWorkspaceHistory.title": "从历史中移除此工作区？",
@@ -257,6 +258,8 @@ export const zh: Record<string, string> = {
 
   "toast.archived": "会话已归档。",
   "toast.restored": "会话已恢复。",
+  "toast.sessionsSynced": "Codex 会话已同步。",
+  "toast.sessionsSyncFailed": "Codex 会话同步失败。",
   "toast.sessionTrashed": "会话已移到废纸篓。",
   "toast.workspaceTrashedKept": "会话已移到废纸篓，工作区目录已保留。",
   "toast.workspaceTrashedDeleted": "会话与工作区目录已移到废纸篓。",

@@ -33,6 +33,7 @@ export const en: Record<string, string> = {
   "history.workspaces_other": "{count} workspaces",
   "history.sessions_one": "{count} session",
   "history.sessions_other": "{count} sessions",
+  "history.sync": "Sync Codex sessions",
   "history.openCodexHome": "Open Codex data directory",
   "history.empty.searchTitle": "No matches for this search",
   "history.empty.searchHint": "Try different keywords or clear the search.",
@@ -235,7 +236,7 @@ export const en: Record<string, string> = {
   "dialog.trashSession.confirm": "Move to Trash",
   "dialog.trashWorkspace.title": "Delete generated workspace?",
   "dialog.trashWorkspace.body":
-    "This is a Codex-generated task folder. Choose how to handle the workspace folder along with its session.",
+    "This is a Codex-generated task folder. Choose how to handle the workspace folder and all Codex sessions attached to it.",
   "dialog.trashWorkspace.saveCopy": "Save a copy then delete",
   "dialog.trashWorkspace.deleteOnly": "Delete without saving",
   "dialog.trashWorkspaceHistory.title": "Remove workspace from history?",
@@ -268,6 +269,8 @@ export const en: Record<string, string> = {
 
   "toast.archived": "Session archived.",
   "toast.restored": "Session restored.",
+  "toast.sessionsSynced": "Codex sessions synced.",
+  "toast.sessionsSyncFailed": "Failed to sync Codex sessions.",
   "toast.sessionTrashed": "Session moved to Trash.",
   "toast.workspaceTrashedKept": "Session moved to Trash. Workspace folder kept.",
   "toast.workspaceTrashedDeleted": "Session and workspace folder moved to Trash.",

@@ -29,7 +29,7 @@ struct SessionIndexCriteria {
 
 struct ThreadWorkspaceState {
     cwd: String,
-    workspace_thread_count: i64,
+    workspace_thread_ids: Vec<String>,
 }
 
 struct GeneratedWorkspacePath {
@@ -77,12 +77,12 @@ pub fn move_generated_workspace_session_to_trash(
     let workspace_path = expand_tilde(workspace_state.cwd.trim());
     let generated_workspace = generated_workspace_path(&workspace_path)?;
     let workspace_exists = ensure_optional_workspace_directory(&generated_workspace.path)?;
+    let workspace_thread_ids = workspace_state.workspace_thread_ids;
 
-    if workspace_state.workspace_thread_count != 1 {
+    if workspace_thread_ids.is_empty() {
         return Err(CodexError::TrashOperation(format!(
-            "Generated workspace {} is referenced by {} Codex sessions; deletion was stopped for safety",
-            generated_workspace.path.display(),
-            workspace_state.workspace_thread_count
+            "No Codex sessions reference generated workspace {}",
+            generated_workspace.path.display()
         )));
     }
 
@@ -92,7 +92,15 @@ pub fn move_generated_workspace_session_to_trash(
         None
     };
 
-    move_thread_to_trash(thread_id)?;
+    let deleted_session_count = workspace_thread_ids.len();
+    for workspace_thread_id in workspace_thread_ids {
+        move_thread_to_trash(workspace_thread_id.clone()).map_err(|error| {
+            CodexError::TrashOperation(format!(
+                "Could not delete Codex session {workspace_thread_id} while deleting generated workspace {}: {error}",
+                generated_workspace.path.display()
+            ))
+        })?;
+    }
 
     if workspace_exists {
         trash::delete(&generated_workspace.path).map_err(|error| {
@@ -102,7 +110,7 @@ pub fn move_generated_workspace_session_to_trash(
                 .unwrap_or_default();
 
             CodexError::TrashOperation(format!(
-                "Session was deleted, but generated workspace folder {} could not be moved to Trash: {error}.{saved_message}",
+                "{deleted_session_count} Codex session(s) were deleted, but generated workspace folder {} could not be moved to Trash: {error}.{saved_message}",
                 generated_workspace.path.display()
             ))
         })?;
@@ -239,15 +247,18 @@ fn read_thread_workspace_state(thread_id: &str) -> Result<ThreadWorkspaceState, 
     }
 
     let selected_workspace_path = normalize_absolute_path(&expand_tilde(cwd.trim()))?;
-    let mut statement = connection.prepare("SELECT cwd FROM threads")?;
-    let workspace_paths = statement.query_map([], |row| row.get::<_, String>(0))?;
-    let mut workspace_thread_count = 0;
+    let mut statement = connection.prepare("SELECT id, cwd FROM threads")?;
+    let workspace_rows = statement.query_map([], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+    })?;
+    let mut workspace_thread_ids = Vec::new();
 
-    for workspace_path in workspace_paths {
-        let workspace_path = workspace_path?;
+    for workspace_row in workspace_rows {
+        let (candidate_thread_id, workspace_path) = workspace_row?;
+        let candidate_thread_id = candidate_thread_id.trim();
         let workspace_path = workspace_path.trim();
 
-        if workspace_path.is_empty() {
+        if candidate_thread_id.is_empty() || workspace_path.is_empty() {
             continue;
         }
 
@@ -256,14 +267,18 @@ fn read_thread_workspace_state(thread_id: &str) -> Result<ThreadWorkspaceState, 
             continue;
         };
 
-        if candidate_workspace_path == selected_workspace_path {
-            workspace_thread_count += 1;
+        if candidate_workspace_path == selected_workspace_path
+            && !workspace_thread_ids
+                .iter()
+                .any(|existing| existing == candidate_thread_id)
+        {
+            workspace_thread_ids.push(candidate_thread_id.to_string());
         }
     }
 
     Ok(ThreadWorkspaceState {
         cwd,
-        workspace_thread_count,
+        workspace_thread_ids,
     })
 }
 
