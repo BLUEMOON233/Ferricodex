@@ -93,6 +93,13 @@ npm run tauri build
 
 ## 更新日志
 
+### v0.2.2
+
+- 修复 Windows 平台 Codex `threads` 表缺少 `preview` 列时无法读取历史的问题。
+- 读取 `threads` 前会根据实际 schema 动态构造查询，兼容 `preview` / `first_user_message`、秒级 / 毫秒级时间字段等差异。
+- 新增 Windows schema 单元测试，覆盖没有 `preview` 但存在 `first_user_message` 的 `state_5.sqlite` 结构。
+- 同步版本号到 `0.2.2`，用于发布 `v0.2.2`。
+
 ### v0.2.1
 
 - 新增历史面板同步按钮，可在 Ferricodex 已打开时手动重新读取 Codex 新增的会话，并尽量保留当前选中的 session 或 workspace。

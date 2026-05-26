@@ -103,6 +103,13 @@ Known Bugs:
 
 ## Changelog
 
+### v0.2.2
+
+- Fixed Windows Codex history loading when the `threads` table does not include a `preview` column.
+- The thread reader now builds SQL from the detected schema, supporting `preview` / `first_user_message` and second / millisecond timestamp variants.
+- Added a Windows schema unit test for `state_5.sqlite` structures without `preview` but with `first_user_message`.
+- Synchronized versions to `0.2.2` for the `v0.2.2` release.
+
 ### v0.2.1
 
 - Added a history-panel sync button that manually reloads new Codex sessions while Ferricodex is already open, while preserving the selected session or workspace when possible.
